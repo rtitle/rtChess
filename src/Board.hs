@@ -31,7 +31,7 @@ instance Show Piece where
 -- ** output functions **
 
 showSquare::Square -> String
-showSquare s = [file] ++ rank where
+showSquare s = file:rank where
   file = (chr . (+ ord 'a') . mod8) s
   rank = (show . succ . quot8) s
 
@@ -40,22 +40,21 @@ readSquare [] = -1
 readSquare (file:rank) = ord file - ord 'a' +
                          (mult8 . pred . read) rank
 
-prettySquare::Maybe Piece -> String
-prettySquare Nothing = "|   "
-prettySquare (Just p) = "| " ++ show p ++ " "
-
 prettyBoard::Board -> String
 prettyBoard = unlines . 
              (hline++) . 
              concatMap (:hline) . 
-             map (++vline) . 
              reverse . 
+             map (++vline) . 
              map concat . 
              splitEvery 8 . 
+             map (vline++) .
              map prettySquare . 
              toSquareBoard where
   hline = [vline ++ (concat . replicate 31) "-" ++ vline]
   vline = "|"
+  prettySquare Nothing = "   "
+  prettySquare (Just p) = " " ++ show p ++ " "
 
 toSquareBoard::Board -> [Maybe Piece]
 toSquareBoard [] = replicate 64 Nothing
