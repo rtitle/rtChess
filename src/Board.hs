@@ -59,9 +59,9 @@ prettyBoard = unlines .
 
 toSquareBoard::Board -> [Maybe Piece]
 toSquareBoard [] = replicate 64 Nothing
-toSquareBoard b = snd $ foldl combine (-1, []) sortedBoard where
-  combine (lastSq, acc) (Piece pt col sq) = 
-    (sq, acc ++ (replicate (sq-lastSq-1) Nothing) ++ [Just (Piece pt col sq)])
+toSquareBoard b = pad 64 $ foldl combine (-1, []) sortedBoard where
+  combine acc (Piece pt col sq) = (sq, pad sq acc ++ [Just (Piece pt col sq)])
+  pad curSq (lastSq, acc) =  acc ++ (replicate (curSq-lastSq-1) Nothing)
   sortedBoard = sortBy comparingSquare b
 
 -- ** auxiliary helper functions **
