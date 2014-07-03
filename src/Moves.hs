@@ -23,6 +23,12 @@ blackPawnDirections = [[S]] --TODO: add captures, [S,E], [S,W]]
 allMoves :: Pieces -> [Move]
 allMoves = concatMap moves
 
+allWhiteMoves :: Pieces -> [Move]
+allWhiteMoves = allMoves . filter (not . black)
+  
+allBlackMoves :: Pieces -> [Move]
+allBlackMoves = allMoves . filter black
+
 -- note: does not use board state yet
 -- no castling, pawn promotion, captures, en passant, etc yet
 moves :: Piece -> [Move]

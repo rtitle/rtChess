@@ -91,6 +91,10 @@ splitEvery n = takeWhile (not . null) . map (take n) . iterate (drop n)
 surround :: String -> String -> String
 surround s str = s ++ str ++ s
 
+black :: Piece -> Bool
+black (Piece _ Black _) = True
+black _ = False
+
 -- ** some boards **
 
 initialPieces :: Pieces
