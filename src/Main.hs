@@ -3,4 +3,4 @@ import Board
 
 
 main::IO()
-main = putStr $ prettyBoard initialBoard
+main = putStr $ prettyPieces initialPieces
