@@ -1,7 +1,7 @@
 module Moves where
 import Board
 
-data Direction = N | S | E | W deriving Eq
+data Direction = N | S | E | W deriving (Eq, Show)
                    
 -- may add additional move metadata in the future, like captures
 data Move = Move { piece :: Piece }
@@ -12,11 +12,10 @@ instance Show Move where
 
 allDirections = [N, S, E, W]
 rookDirections = [ [a] | a <- allDirections ]
-bishopDirections=[ [a,b] | a <- [N,S], b <- [E,W] ]
+bishopDirections =[ [a,b] | a <- [N,S], b <- [E,W] ]
 queenDirections = rookDirections ++ bishopDirections
 kingDirections = rookDirections ++ bishopDirections
-knightDirections = [ [a,b,c] | a <- allDirections, b <- [N,S], c <- [E,W],
-                               (a == b) && (a /= c) || (a == c) && (a /= b) ]
+knightDirections = [ [a,b,c] | a <- allDirections, b <- [N,S], c <- [E,W], a == b || a == c]
 whitePawnDirections = [[N]] --TODO: add captures, [N,E], [N,W]]
 blackPawnDirections = [[S]] --TODO: add captures, [S,E], [S,W]]
 
