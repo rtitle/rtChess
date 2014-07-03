@@ -32,17 +32,17 @@ allBlackMoves = allMoves . filter black
 -- note: does not use board state yet
 -- no castling, pawn promotion, captures, en passant, etc yet
 moves :: Piece -> [Move]
-moves (Piece Rook color square) = map (\sq -> Move (Piece Rook color sq)) (concatMap (genRepeatingMoves square) rookDirections)
-moves (Piece Bishop color square) = map (\sq -> Move (Piece Bishop color sq)) (concatMap (genRepeatingMoves square) bishopDirections)
-moves (Piece Queen color square) = map (\sq -> Move (Piece Queen color sq)) (concatMap (genRepeatingMoves square) queenDirections)
-moves (Piece King color square) = map (\sq -> Move (Piece King color sq)) (concatMap (genSingleMove square) kingDirections) 
-moves (Piece Knight color square) = map (\sq -> Move (Piece Knight color sq)) (concatMap (genSingleMove square) knightDirections)
+moves (Piece Rook color square) = map (\sq -> Move $ Piece Rook color sq) (concatMap (genRepeatingMoves square) rookDirections)
+moves (Piece Bishop color square) = map (\sq -> Move $ Piece Bishop color sq) (concatMap (genRepeatingMoves square) bishopDirections)
+moves (Piece Queen color square) = map (\sq -> Move $ Piece Queen color sq) (concatMap (genRepeatingMoves square) queenDirections)
+moves (Piece King color square) = map (\sq -> Move $ Piece King color sq) (concatMap (genSingleMove square) kingDirections) 
+moves (Piece Knight color square) = map (\sq -> Move $ Piece Knight color sq) (concatMap (genSingleMove square) knightDirections)
 moves (Piece Pawn White square) 
-  | rank square == 1 = map (\sq -> Move (Piece Pawn White sq)) ((concatMap (genMoves square 2) whitePawnDirections))
-  | otherwise = map (\sq -> Move (Piece Pawn White sq)) (concatMap (genSingleMove square) whitePawnDirections) 
+  | rank square == 1 = map (\sq -> Move $ Piece Pawn White sq) ((concatMap (genMoves square 2) whitePawnDirections))
+  | otherwise = map (\sq -> Move $ Piece Pawn White sq) (concatMap (genSingleMove square) whitePawnDirections) 
 moves (Piece Pawn Black square) 
-  | rank square == 6 = map (\sq -> Move (Piece Pawn Black sq)) ((concatMap (genMoves square 2) blackPawnDirections))
-  | otherwise = map (\sq -> Move (Piece Pawn Black sq)) (concatMap (genSingleMove square) blackPawnDirections) 
+  | rank square == 6 = map (\sq -> Move $ Piece Pawn Black sq) ((concatMap (genMoves square 2) blackPawnDirections))
+  | otherwise = map (\sq -> Move $ Piece Pawn Black sq) (concatMap (genSingleMove square) blackPawnDirections) 
 
 genMoves :: Square -> Int -> [Direction] -> [Square]
 genMoves sq n d = takeWhile (onBoards d sq) . take n . drop 1 . iterate (+offsets d) $ sq

@@ -67,7 +67,7 @@ prettyBoard = unlines .
 piecesToBoard :: Pieces -> Board
 piecesToBoard [] = replicate 64 Nothing
 piecesToBoard b = pad 64 $ foldl combine (-1, []) sortedBoard where
-  combine acc (Piece pt col sq) = (sq, pad sq acc ++ [Just (Piece pt col sq)])
+  combine acc (Piece pt col sq) = (sq, pad sq acc ++ [Just $ Piece pt col sq])
   pad curSq (lastSq, acc) =  acc ++ (replicate (curSq-lastSq-1) Nothing)
   sortedBoard = sortBy comparingSquare b
 
