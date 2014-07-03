@@ -37,9 +37,9 @@ showPieceSquare :: Piece -> String
 showPieceSquare (Piece _ _ square) = showSquare square
 
 showSquare :: Square -> String
-showSquare s = r:f where
-  r = chr . (+ ord 'a') . rank $ s
-  f = show . succ . file $ s
+showSquare s = f:r where
+  f = chr . (+ ord 'a') . file $ s
+  r = show . succ . rank $ s
 
 readSquare :: String -> Square
 readSquare [] = -1
