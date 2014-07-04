@@ -2,6 +2,7 @@ module Board where
 import Data.Char
 import Data.List
 import Data.Bits
+import qualified Data.Vector as V
 
 -- ** data types **
 
@@ -13,7 +14,7 @@ data Piece = Piece { pieceType :: PieceType,
                      square :: Square } deriving Eq          
 -- use both pieces and squares to represent the board
 type Pieces = [Piece]
-type Board = [Maybe Piece]
+type Board = V.Vector (Maybe Piece)
 type State = (Pieces, Board)
  
 -- ** type class instances **
@@ -47,7 +48,7 @@ readSquare (f:r) = ord f - ord 'a' +
                          ((*8) . pred . read $ r)
 
 prettyPieces :: Pieces -> String
-prettyPieces = prettyBoard . piecesToBoard
+prettyPieces = prettyBoard . toBoard
   
 prettyBoard :: Board -> String
 prettyBoard = unlines . 
@@ -58,18 +59,19 @@ prettyBoard = unlines .
              map concat . 
              splitEvery 8 . 
              map (vline++) .
-             map prettySquare where
+             map prettySquare .
+             V.toList where
   hline = surround vline (concat . replicate 31 $ "-")
   vline = "|"
   prettySquare Nothing = "   "
   prettySquare (Just p) = surround " " (show p)
 
-piecesToBoard :: Pieces -> Board
-piecesToBoard [] = replicate 64 Nothing
-piecesToBoard b = pad 64 $ foldl combine (-1, []) sortedBoard where
+toBoard :: Pieces -> Board
+toBoard [] = V.fromList $ replicate 64 Nothing
+toBoard p = V.fromList $ pad 64 $ foldl combine (-1, []) sortedPieces where
   combine acc (Piece pt col sq) = (sq, pad sq acc ++ [Just $ Piece pt col sq])
   pad curSq (lastSq, acc) =  acc ++ (replicate (curSq-lastSq-1) Nothing)
-  sortedBoard = sortBy comparingSquare b
+  sortedPieces = sortBy comparingSquare p
 
 -- ** auxiliary helper functions **
 

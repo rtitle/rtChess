@@ -1,5 +1,6 @@
 module Moves where
 import Board
+import qualified Data.Vector as V
 
 data Direction = N | S | E | W deriving (Eq, Show)
                    
@@ -19,47 +20,46 @@ knightDirections = [ [a,b,c] | a <- allDirections, b <- [N,S], c <- [E,W], a == 
 whitePawnDirections = [[N]] --TODO: add captures, [N,E], [N,W]]
 blackPawnDirections = [[S]] --TODO: add captures, [S,E], [S,W]]
 
-allMoves :: Pieces -> [Move]
-allMoves = concatMap moves
+allMoves :: Board -> Pieces -> [Move]
+allMoves b = concatMap (moves b)
 
-allWhiteMoves :: Pieces -> [Move]
-allWhiteMoves = allMoves . filter (not . black)
+allWhiteMoves :: Board -> Pieces -> [Move]
+allWhiteMoves b = allMoves b . filter (not . black)
   
-allBlackMoves :: Pieces -> [Move]
-allBlackMoves = allMoves . filter black
+allBlackMoves :: Board -> Pieces -> [Move]
+allBlackMoves b = allMoves b . filter black
 
--- note: does not use board state yet
--- no castling, pawn promotion, captures, en passant, etc yet
-moves :: Piece -> [Move]
-moves (Piece pt pc sq) 
+-- not yet implemented: castling, pawn captures, en passant, pawn promotion
+moves :: Board -> Piece -> [Move]
+moves b (Piece pt pc sq) 
   | pt == Rook = 
-      map mkMove $ concatMap (genRepeatingMoves sq) rookDirections
+      map mkMove $ concatMap (genRepeatingMoves b pc sq) rookDirections
   | pt == Bishop = 
-      map mkMove $ concatMap (genRepeatingMoves sq) bishopDirections
+      map mkMove $ concatMap (genRepeatingMoves b pc sq) bishopDirections
   | pt == Queen = 
-      map mkMove $ concatMap (genRepeatingMoves sq) queenDirections
+      map mkMove $ concatMap (genRepeatingMoves b pc sq) queenDirections
   | pt == King = 
-      map mkMove $ concatMap (genSingleMove sq) kingDirections
+      map mkMove $ concatMap (genSingleMove b pc sq) kingDirections
   | pt == Knight =
-      map mkMove $ concatMap (genSingleMove sq) knightDirections
+      map mkMove $ concatMap (genSingleMove b pc sq) knightDirections
   | (pt, pc, rank sq) == (Pawn, White, 1) =
-      map mkMove $ concatMap (genMoves sq 2) whitePawnDirections
+      map mkMove $ concatMap (genMoves b pc sq 2) whitePawnDirections
   | (pt, pc) == (Pawn, White) = 
-      map mkMove $ concatMap (genSingleMove sq) whitePawnDirections
+      map mkMove $ concatMap (genSingleMove b pc sq) whitePawnDirections
   | (pt, pc, rank sq) == (Pawn, Black, 6) =
-      map mkMove $ concatMap (genMoves sq 2) blackPawnDirections
+      map mkMove $ concatMap (genMoves b pc sq 2) blackPawnDirections
   | (pt, pc) == (Pawn, Black) =
-      map mkMove $ concatMap (genSingleMove sq) blackPawnDirections
+      map mkMove $ concatMap (genSingleMove b pc sq) blackPawnDirections
   where mkMove = Move . Piece pt pc
 
-genMoves :: Square -> Int -> [Direction] -> [Square]
-genMoves sq n d = takeWhile (onBoards d sq) . take n . drop 1 . iterate (+offsets d) $ sq
+genMoves :: Board -> PieceColor -> Square -> Int -> [Direction] -> [Square]
+genMoves b pc sq n d = takeWhile (canMove b pc d sq) . take n . drop 1 . iterate (+offsets d) $ sq
 
-genRepeatingMoves :: Square -> [Direction] -> [Square]
-genRepeatingMoves sq d = genMoves sq maxBound d
+genRepeatingMoves :: Board -> PieceColor -> Square -> [Direction] -> [Square]
+genRepeatingMoves b pc sq d = genMoves b pc sq maxBound d
 
-genSingleMove :: Square -> [Direction] -> [Square]
-genSingleMove sq d = genMoves sq 1 d
+genSingleMove :: Board -> PieceColor -> Square -> [Direction] -> [Square]
+genSingleMove b pc sq d = genMoves b pc sq 1 d
 
 offset :: Direction -> Int
 offset N = 8
@@ -85,3 +85,13 @@ onBoard d initSq curSq =
 onBoards :: [Direction] -> Square -> Square -> Bool
 onBoards dirs initSq curSq  = foldl (\acc d -> acc && onBoard d initSq curSq) True dirs
 
+canMove :: Board -> PieceColor -> [Direction] -> Square -> Square -> Bool
+canMove board color directions initSq curSq = 
+  onBoards directions initSq curSq &&
+    (occupant curSq == Nothing || occupant curSq /= Just color) &&
+     occupant (curSq-offsets directions) == Nothing where 
+  occupant sq
+    | sq == initSq = Nothing
+    | otherwise = case board V.! sq of
+                    Nothing -> Nothing
+                    Just (Piece _ color _) -> Just color
