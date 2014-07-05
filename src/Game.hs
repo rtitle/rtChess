@@ -12,13 +12,13 @@ data Game = Game { pieces :: Pieces,
 makeMove :: Move -> State Game ()
 makeMove move = do
                (Game ps b t) <- get
-               put (Game (updatePieces ps move) (updateBoard b move) (reverseColor t))
+               put $ Game (updatePieces ps move) (updateBoard b move) (reverseColor t)
 
 updatePieces :: Pieces -> Move -> Pieces
 updatePieces ps (Move p1 p2 _) = p2 : filter (/=p1) ps
 
 updateBoard :: Board -> Move -> Board
-updateBoard b (Move (Piece _ _ fromSq) p@(Piece _ _ toSq) _) = b V.// [(fromSq, Nothing), (toSq, Just p)]
+updateBoard b (Move Piece {square = fromSq} p@Piece {square = toSq} _) = b V.// [(fromSq, Nothing), (toSq, Just p)]
 
 newGame :: Game
 newGame = Game initialPieces (toBoard initialPieces) White

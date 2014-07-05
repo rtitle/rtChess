@@ -1,5 +1,6 @@
 module Moves where
 import Board
+import Control.Applicative
 
 data Direction = N | S | E | W deriving (Eq, Show)
                    
@@ -9,21 +10,19 @@ data Move = Move { fromPiece :: Piece,
 
 -- not yet implemented: castling, pawn promotion, check, checkmate
 instance Show Move where
-  -- pawn capture (exd4)
-  show (Move from @ (Piece Pawn _ _) to (Just _)) = 
-    (head . showPieceSquare $ from) : "x" ++ showPieceSquare to
+
+  show (Move from to cap)
+    -- pawn capture (exd4)
+    | pieceType from == Pawn && cap /= Nothing = (head . showPieceSquare $ from) : "x" ++ showPieceSquare to
     
-  -- pawn move (d6)
-  show (Move (Piece Pawn _ _) to Nothing) = 
-    showPieceSquare to
+    -- pawn move (d6)
+    | pieceType from == Pawn = showPieceSquare to
+     
+    -- piece capture (Qxh2)
+    | cap /= Nothing = show to ++ "x" ++ showPieceSquare to
     
-  -- piece capture (Qxh2)
-  show (Move _ to (Just _)) =
-    show to ++ "x" ++ showPieceSquare to
-    
-  -- piece move (Nf3)
-  show (Move _ to Nothing) =
-    show to ++ showPieceSquare to
+    -- piece move (Nf3)
+    | otherwise = show to ++ showPieceSquare to
 
 allDirections :: [Direction]
 allDirections = [N, S, E, W]
@@ -56,7 +55,7 @@ blackPawnCaptureDirections :: [[Direction]]
 blackPawnCaptureDirections = [[S,E], [S,W]]
 
 allMoves :: Board -> Pieces -> PieceColor -> [Move]
-allMoves b p pc = concatMap (moves b) (filter (comparingColor pc) p)
+allMoves b p pc = concatMap (moves b) (filter (\c -> pc == pieceColor c) p)
 
 -- not yet implemented: castling, en passant, pawn promotion
 moves :: Board -> Piece -> [Move]
@@ -103,9 +102,9 @@ moves b p@(Piece pt pc sq)
   | otherwise = []
         
   where mkMove s = Move p (Piece pt pc s) (occupant b s)
-        moveOrCapture s = moveOnly s || captureOnly s
-        moveOnly s = isEmptySquare b s
-        captureOnly s = isCapture b pc s
+        moveOrCapture = liftA2 (||) moveOnly captureOnly
+        moveOnly = isEmptySquare b
+        captureOnly = isCapture b pc
         genRepeatingMoves = genMoves b sq maxBound
         genSingleMove = genMoves b sq 1
         genDoubleMove = genMoves b sq 2
@@ -120,10 +119,10 @@ offset S = -8
 offset W = -1
 
 offsets :: [Direction] -> Int
-offsets dirs = foldl (\acc d -> acc + offset d) 0 dirs
+offsets = foldl (+) 0 . map offset
 
-onBoard :: Direction -> Square -> Square -> Bool
-onBoard d initSq curSq = 
+onBoard :: Square -> Square -> Direction -> Bool
+onBoard initSq curSq d = 
   let curRank = rank curSq
       initRank = rank initSq 
       curFile = file curSq
@@ -134,22 +133,18 @@ onBoard d initSq curSq =
     S -> curRank >= 0 && curRank < initRank
     W -> curFile >= 0 && curFile < initFile
                          
-onBoards :: [Direction] -> Square -> Square -> Bool
-onBoards dirs initSq curSq  = foldl (\acc d -> acc && onBoard d initSq curSq) True dirs
-
-color :: Maybe Piece -> Maybe PieceColor
-color Nothing = Nothing
-color (Just (Piece _ pc _)) = Just pc
+onBoards :: Square -> Square -> [Direction] -> Bool
+onBoards initSq curSq = foldl (&&) True . map (onBoard initSq curSq)
                 
 isCapture :: Board -> PieceColor -> Square -> Bool
-isCapture b pc s = not (isEmptySquare b s) && color (occupant b s) /= Just pc
+isCapture b pc s = Just pc == fmap (reverseColor . pieceColor) (occupant b s)
 
 isEmptySquare :: Board -> Square -> Bool
 isEmptySquare b s = occupant b s == Nothing
                     
 canMove :: Board -> [Direction] -> (Square -> Bool) -> Square -> Square -> Bool
 canMove b d f initSq curSq = 
-  onBoards d initSq curSq &&
+  onBoards initSq curSq d &&
     (prevSq == initSq || occupant b prevSq == Nothing) &&
     f curSq
   where prevSq = curSq - offsets d

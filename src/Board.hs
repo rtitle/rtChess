@@ -34,7 +34,7 @@ instance Show Piece where
 -- ** output functions **
 
 showPieceSquare :: Piece -> String
-showPieceSquare (Piece _ _ sq) = showSquare sq
+showPieceSquare Piece {square=sq} = showSquare sq
 
 showSquare :: Square -> String
 showSquare s = f:r where
@@ -67,18 +67,15 @@ prettyBoard = unlines .
 
 toBoard :: Pieces -> Board
 toBoard [] = V.fromList $ replicate 64 Nothing
-toBoard p = V.fromList $ pad 64 $ foldl combine (-1, []) sortedPieces where
-  combine acc (Piece pt col sq) = (sq, pad sq acc ++ [Just $ Piece pt col sq])
+toBoard ps = V.fromList $ pad 64 $ foldl combine (-1, []) sortedPieces where
+  combine acc p@Piece {square = sq} = (sq, pad sq acc ++ [Just p])
   pad curSq (lastSq, acc) =  acc ++ (replicate (curSq-lastSq-1) Nothing)
-  sortedPieces = sortBy comparingSquare p
+  sortedPieces = sortBy comparingSquare ps
 
 -- ** auxiliary helper functions **
 
 comparingSquare :: Piece -> Piece -> Ordering
-comparingSquare (Piece _ _ sq1) (Piece _ _ sq2)
-  | sq1 < sq2 = LT
-  | sq1 > sq2 = GT
-  | otherwise = EQ
+comparingSquare p1 p2 = compare (square p1) (square p2)
   
 file :: Int -> Int
 file n = n .&. 7
@@ -91,9 +88,6 @@ splitEvery n = takeWhile (not . null) . map (take n) . iterate (drop n)
 
 surround :: String -> String -> String
 surround s str = s ++ str ++ s
-
-comparingColor :: PieceColor -> Piece -> Bool
-comparingColor pc (Piece _ c _) = c == pc
 
 occupant :: Board -> Square -> Maybe Piece
 occupant b sq = b V.! sq
