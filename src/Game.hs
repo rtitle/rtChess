@@ -38,4 +38,4 @@ playRandomGame gen n = do
                        playRandomGame newGen (n-1)
                        
 playGame :: Int -> State Game Pieces
-playGame n = playRandomGame (mkStdGen 0) n
+playGame n = playRandomGame (mkStdGen n) n

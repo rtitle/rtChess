@@ -10,7 +10,6 @@ data Move = Move { fromPiece :: Piece,
 
 -- not yet implemented: castling, pawn promotion, check, checkmate
 instance Show Move where
-
   show (Move from to cap)
     -- pawn capture (exd4)
     | pieceType from == Pawn && cap /= Nothing = (head . showPieceSquare $ from) : "x" ++ showPieceSquare to
