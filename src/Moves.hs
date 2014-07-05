@@ -1,65 +1,117 @@
 module Moves where
 import Board
-import qualified Data.Vector as V
 
 data Direction = N | S | E | W deriving (Eq, Show)
                    
--- may add additional move metadata in the future, like captures
-data Move = Move { piece :: Piece }
+data Move = Move { fromPiece :: Piece,
+                   toPiece :: Piece,
+                   capturedPiece :: Maybe Piece }
 
+-- not yet implemented: castling, pawn promotion, check, checkmate
 instance Show Move where
-  show (Move (Piece Pawn color square)) = showPieceSquare (Piece Pawn color square)
-  show (Move p) = show p ++ showPieceSquare p
+  -- pawn capture (exd4)
+  show (Move from @ (Piece Pawn _ _) to (Just _)) = 
+    (head . showPieceSquare $ from) : "x" ++ showPieceSquare to
+    
+  -- pawn move (d6)
+  show (Move (Piece Pawn _ _) to Nothing) = 
+    showPieceSquare to
+    
+  -- piece capture (Qxh2)
+  show (Move _ to (Just _)) =
+    show to ++ "x" ++ showPieceSquare to
+    
+  -- piece move (Nf3)
+  show (Move _ to Nothing) =
+    show to ++ showPieceSquare to
 
+allDirections :: [Direction]
 allDirections = [N, S, E, W]
+
+rookDirections :: [[Direction]]
 rookDirections = [ [a] | a <- allDirections ]
+
+bishopDirections :: [[Direction]]
 bishopDirections =[ [a,b] | a <- [N,S], b <- [E,W] ]
+
+queenDirections :: [[Direction]]
 queenDirections = rookDirections ++ bishopDirections
+
+kingDirections :: [[Direction]]
 kingDirections = rookDirections ++ bishopDirections
+
+knightDirections :: [[Direction]]
 knightDirections = [ [a,b,c] | a <- allDirections, b <- [N,S], c <- [E,W], a == b || a == c]
-whitePawnDirections = [[N]] --TODO: add captures, [N,E], [N,W]]
-blackPawnDirections = [[S]] --TODO: add captures, [S,E], [S,W]]
 
-allMoves :: Board -> Pieces -> [Move]
-allMoves b = concatMap (moves b)
+whitePawnDirections :: [[Direction]]
+whitePawnDirections = [[N]]
 
-allWhiteMoves :: Board -> Pieces -> [Move]
-allWhiteMoves b = allMoves b . filter (not . black)
-  
-allBlackMoves :: Board -> Pieces -> [Move]
-allBlackMoves b = allMoves b . filter black
+whitePawnCaptureDirections :: [[Direction]]
+whitePawnCaptureDirections = [[N,E], [N,W]]
 
--- not yet implemented: castling, pawn captures, en passant, pawn promotion
+blackPawnDirections :: [[Direction]]
+blackPawnDirections = [[S]]
+
+blackPawnCaptureDirections :: [[Direction]]
+blackPawnCaptureDirections = [[S,E], [S,W]]
+
+allMoves :: Board -> Pieces -> PieceColor -> [Move]
+allMoves b p pc = concatMap (moves b) (filter (comparingColor pc) p)
+
+-- not yet implemented: castling, en passant, pawn promotion
 moves :: Board -> Piece -> [Move]
-moves b (Piece pt pc sq) 
-  | pt == Rook = 
-      map mkMove $ concatMap (genRepeatingMoves b pc sq) rookDirections
-  | pt == Bishop = 
-      map mkMove $ concatMap (genRepeatingMoves b pc sq) bishopDirections
-  | pt == Queen = 
-      map mkMove $ concatMap (genRepeatingMoves b pc sq) queenDirections
-  | pt == King = 
-      map mkMove $ concatMap (genSingleMove b pc sq) kingDirections
-  | pt == Knight =
-      map mkMove $ concatMap (genSingleMove b pc sq) knightDirections
+moves b p@(Piece pt pc sq) 
+  -- rook
+  | pt == Rook = map mkMove $ concatMap (genRepeatingMoves moveOrCapture) rookDirections
+  
+  -- bishop
+  | pt == Bishop = map mkMove $ concatMap (genRepeatingMoves moveOrCapture) bishopDirections
+  
+  -- queen
+  | pt == Queen = map mkMove $ concatMap (genRepeatingMoves moveOrCapture) queenDirections
+  
+  --king
+  | pt == King = map mkMove $ concatMap (genSingleMove moveOrCapture) kingDirections
+  
+  -- knight
+  | pt == Knight = map mkMove $ concatMap (genSingleMove moveOrCapture) knightDirections
+  
+  -- white pawn on the 2nd rank
   | (pt, pc, rank sq) == (Pawn, White, 1) =
-      map mkMove $ concatMap (genMoves b pc sq 2) whitePawnDirections
+      map mkMove $ 
+        concatMap (genDoubleMove moveOnly) whitePawnDirections ++
+        concatMap (genSingleMove captureOnly) whitePawnCaptureDirections
+  
+  -- white pawn
   | (pt, pc) == (Pawn, White) = 
-      map mkMove $ concatMap (genSingleMove b pc sq) whitePawnDirections
+      map mkMove $ 
+        concatMap (genSingleMove moveOnly) whitePawnDirections ++
+        concatMap (genSingleMove captureOnly) whitePawnCaptureDirections
+  
+  -- black pawn on the 7th rank
   | (pt, pc, rank sq) == (Pawn, Black, 6) =
-      map mkMove $ concatMap (genMoves b pc sq 2) blackPawnDirections
+      map mkMove $ 
+        concatMap (genDoubleMove moveOnly) blackPawnDirections ++ 
+        concatMap (genSingleMove captureOnly) blackPawnCaptureDirections
+         
+  -- black pawn
   | (pt, pc) == (Pawn, Black) =
-      map mkMove $ concatMap (genSingleMove b pc sq) blackPawnDirections
-  where mkMove = Move . Piece pt pc
-
-genMoves :: Board -> PieceColor -> Square -> Int -> [Direction] -> [Square]
-genMoves b pc sq n d = takeWhile (canMove b pc d sq) . take n . drop 1 . iterate (+offsets d) $ sq
-
-genRepeatingMoves :: Board -> PieceColor -> Square -> [Direction] -> [Square]
-genRepeatingMoves b pc sq d = genMoves b pc sq maxBound d
-
-genSingleMove :: Board -> PieceColor -> Square -> [Direction] -> [Square]
-genSingleMove b pc sq d = genMoves b pc sq 1 d
+      map mkMove $ 
+        concatMap (genSingleMove  moveOnly) blackPawnDirections ++
+        concatMap (genSingleMove captureOnly) blackPawnCaptureDirections
+        
+  | otherwise = []
+        
+  where mkMove s = Move p (Piece pt pc s) (occupant b s)
+        moveOrCapture s = moveOnly s || captureOnly s
+        moveOnly s = isEmptySquare b s
+        captureOnly s = isCapture b pc s
+        genRepeatingMoves = genMoves b sq maxBound
+        genSingleMove = genMoves b sq 1
+        genDoubleMove = genMoves b sq 2
+        
+genMoves :: Board -> Square -> Int -> (Square -> Bool) -> [Direction] -> [Square]
+genMoves b sq n f d = takeWhile (canMove b d f sq). take n . drop 1 . iterate (+offsets d) $ sq
 
 offset :: Direction -> Int
 offset N = 8
@@ -85,13 +137,19 @@ onBoard d initSq curSq =
 onBoards :: [Direction] -> Square -> Square -> Bool
 onBoards dirs initSq curSq  = foldl (\acc d -> acc && onBoard d initSq curSq) True dirs
 
-canMove :: Board -> PieceColor -> [Direction] -> Square -> Square -> Bool
-canMove board color directions initSq curSq = 
-  onBoards directions initSq curSq &&
-    (occupant curSq == Nothing || occupant curSq /= Just color) &&
-     occupant (curSq-offsets directions) == Nothing where 
-  occupant sq
-    | sq == initSq = Nothing
-    | otherwise = case board V.! sq of
-                    Nothing -> Nothing
-                    Just (Piece _ color _) -> Just color
+color :: Maybe Piece -> Maybe PieceColor
+color Nothing = Nothing
+color (Just (Piece _ pc _)) = Just pc
+                
+isCapture :: Board -> PieceColor -> Square -> Bool
+isCapture b pc s = not (isEmptySquare b s) && color (occupant b s) /= Just pc
+
+isEmptySquare :: Board -> Square -> Bool
+isEmptySquare b s = occupant b s == Nothing
+                    
+canMove :: Board -> [Direction] -> (Square -> Bool) -> Square -> Square -> Bool
+canMove b d f initSq curSq = 
+  onBoards d initSq curSq &&
+    (prevSq == initSq || occupant b prevSq == Nothing) &&
+    f curSq
+  where prevSq = curSq - offsets d

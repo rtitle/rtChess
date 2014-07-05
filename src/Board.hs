@@ -15,7 +15,6 @@ data Piece = Piece { pieceType :: PieceType,
 -- use both pieces and squares to represent the board
 type Pieces = [Piece]
 type Board = V.Vector (Maybe Piece)
-type State = (Pieces, Board)
  
 -- ** type class instances **
 
@@ -35,7 +34,7 @@ instance Show Piece where
 -- ** output functions **
 
 showPieceSquare :: Piece -> String
-showPieceSquare (Piece _ _ square) = showSquare square
+showPieceSquare (Piece _ _ sq) = showSquare sq
 
 showSquare :: Square -> String
 showSquare s = f:r where
@@ -93,9 +92,15 @@ splitEvery n = takeWhile (not . null) . map (take n) . iterate (drop n)
 surround :: String -> String -> String
 surround s str = s ++ str ++ s
 
-black :: Piece -> Bool
-black (Piece _ Black _) = True
-black _ = False
+comparingColor :: PieceColor -> Piece -> Bool
+comparingColor pc (Piece _ c _) = c == pc
+
+occupant :: Board -> Square -> Maybe Piece
+occupant b sq = b V.! sq
+
+reverseColor :: PieceColor -> PieceColor
+reverseColor White = Black
+reverseColor _ = White
 
 -- ** some boards **
 

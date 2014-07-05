@@ -8,9 +8,12 @@ executable rtChess
   hs-source-dirs:  src
   main-is:         Main.hs
   build-depends:   base >= 4,
-                   vector
+                   vector,
+                   mtl,
+                   random
   ghc-options:     -Wall
   other-modules:   
                    Board,
-                   Moves
+                   Moves,
+                   Game
 
