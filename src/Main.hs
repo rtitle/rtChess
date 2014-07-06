@@ -3,12 +3,22 @@ import Control.Monad.State
 import Board
 import Game
 
-main::IO()
+getMove :: IO String
+getMove = do
+  putStrLn "Enter move:"
+  m <- getLine
+  return m
+  
+play :: Game -> IO ()
+play game = do
+  mv <- getMove
+  let (mvs,g) = runState (playGame [mv]) game
+  putStrLn $ prettyPieces . pieces $ g
+  putStrLn $ show (length mvs) ++ " possible moves for " ++ show (turn g) ++ ": " ++ show mvs
+  play g
+
+main :: IO ()
 main = do
   putStrLn $ "New Game:"
   putStrLn $ prettyPieces initialPieces
-  putStrLn $ "Making the following moves: " ++ show moves
-  let (m,g) = runState (playGame moves) newGame
-  putStrLn $ prettyPieces . pieces $ g
-  putStrLn $ "Possible moves for " ++ show (turn g) ++ ": " ++ show m
-  where moves = ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Bxc6", "dxc6", "Nxe5", "Qd4"]
+  play newGame

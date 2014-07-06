@@ -53,8 +53,10 @@ showSquare s = f:r where
 
 readSquare :: String -> Square
 readSquare [] = -1
-readSquare (f:r) = ord f - ord 'a' + 
-                   ((*8) . pred . read $ r)
+readSquare (f:r) 
+  | isNumber . head $ r = ord f - ord 'a' + 
+                          ((*8) . pred . read $ r)
+  | otherwise = -1
 
 prettyPieces :: Pieces -> String
 prettyPieces = prettyBoard . toBoard
