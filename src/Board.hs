@@ -8,7 +8,7 @@ import qualified Data.Vector as V
 
 type Square = Int
 data PieceType = Rook | Knight | Bishop | King | Queen | Pawn deriving Eq
-data PieceColor = Black | White deriving Eq
+data PieceColor = Black | White deriving (Eq, Show)
 data Piece = Piece { pieceType :: PieceType, 
                      pieceColor :: PieceColor,
                      square :: Square } deriving Eq          
@@ -28,10 +28,18 @@ instance Show PieceType where
   
 instance Show Piece where
   -- black pieces are lowercase
-  show (Piece pt Black _) = [toLower . head . show $ pt]
-  show (Piece pt White _) = [head . show $ pt]
+  show (Piece pt Black _) = map toLower (show pt)
+  show (Piece pt White _) = show pt
   
 -- ** output functions **
+
+readPieceType :: Char -> PieceType
+readPieceType 'K' = King
+readPieceType 'Q' = Queen
+readPieceType 'N' = Knight
+readPieceType 'R' = Rook
+readPieceType 'B' = Bishop
+readPieceType _ = Pawn
 
 showPieceSquare :: Piece -> String
 showPieceSquare Piece {square=sq} = showSquare sq
@@ -43,8 +51,8 @@ showSquare s = f:r where
 
 readSquare :: String -> Square
 readSquare [] = -1
-readSquare (f:r) = ord f - ord 'a' +
-                         ((*8) . pred . read $ r)
+readSquare (f:r) = ord f - ord 'a' + 
+                   ((*8) . pred . read $ r)
 
 prettyPieces :: Pieces -> String
 prettyPieces = prettyBoard . toBoard

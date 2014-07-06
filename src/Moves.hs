@@ -18,10 +18,10 @@ instance Show Move where
     | pieceType from == Pawn = showPieceSquare to
      
     -- piece capture (Qxh2)
-    | cap /= Nothing = show to ++ "x" ++ showPieceSquare to
+    | cap /= Nothing = show (pieceType to) ++ "x" ++ showPieceSquare to
     
     -- piece move (Nf3)
-    | otherwise = show to ++ showPieceSquare to
+    | otherwise = show (pieceType to) ++ showPieceSquare to
 
 allDirections :: [Direction]
 allDirections = [N, S, E, W]
