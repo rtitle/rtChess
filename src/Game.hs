@@ -1,8 +1,9 @@
 module Game where
+import qualified Data.Vector as V
 import Control.Monad.State
 import Board
 import Moves
-import qualified Data.Vector as V
+import Utils
 
 data Game = Game { pieces :: Pieces,
                    board :: Board,
@@ -13,17 +14,24 @@ makeMove move = do
                (Game ps b t) <- get
                put $ Game (updatePieces ps move) (updateBoard b move) (reverseColor t)
                
-readMove :: Game -> String -> Move
-readMove (Game ps b t) s = 
-  let toSq = readSquare . reverse . take 2 . reverse $ s
-      pt = readPieceType . head $ s
-      fromFile = case (pt, occupant b toSq) of 
-                   (Pawn, (Just _)) -> Just $ head s
-                   _ -> Nothing
-      f m = toSq == (square . toPiece $ m) && 
-            pt == (pieceType . toPiece $ m) &&
-            (fromFile == Nothing || fromFile == Just (head . showSquare . square . fromPiece $ m))
-  in head $ filter f (allMoves b ps t)
+maybeMakeMove :: Maybe Move -> State Game ()
+maybeMakeMove (Just m) = makeMove m
+maybeMakeMove Nothing = return ()
+               
+readMove :: Game -> String -> Maybe Move
+readMove (Game ps b t) s = headMaybe $ filter fm (allMoves b ps t) where 
+  fm m = toSq == (square . toPiece $ m) &&
+        pt == Just (pieceType . toPiece $ m) &&
+        (fromFileOrRank == Nothing || any (\x -> (Just x) == fromFileOrRank) (showSquare . square . fromPiece $ m))
+  (toSq, pt, fromFileOrRank) = case s of 
+    r:f:[] -> (readSquare (r:[f]), Just Pawn, Nothing)
+    p:r:f:[] -> (readSquare (r:[f]), readPieceType p, Nothing)
+    p:'x':r:f:[] -> case readPieceType p of
+                      Just ptype -> (readSquare (r:[f]), Just ptype, Nothing)
+                      Nothing -> (readSquare (r:[f]), Just Pawn, Just p)
+    p:rf:r:f:[] -> (readSquare (r:[f]), readPieceType p, Just rf)
+    p:rf:'x':r:f:[] -> (readSquare (r:[f]), readPieceType p, Just rf)
+    _ -> (readSquare "a1", Nothing, Nothing)
 
 updatePieces :: Pieces -> Move -> Pieces
 updatePieces ps (Move p1 p2 Nothing) = p2 : filter (/=p1) ps
@@ -42,5 +50,8 @@ playGame [] = do
               return $ allMoves b ps t
 playGame (x:xs) = do
                   g <- get
-                  makeMove $ readMove g x
-                  playGame xs
+                  let maybeM = readMove g x
+                  maybeMakeMove maybeM
+                  playGame $ case maybeM of 
+                    Just _ -> xs
+                    Nothing -> []

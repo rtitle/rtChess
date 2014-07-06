@@ -1,7 +1,7 @@
 module Main where
+import Control.Monad.State
 import Board
 import Game
-import Control.Monad.State
 
 main::IO()
 main = do

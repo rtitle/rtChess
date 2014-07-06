@@ -3,6 +3,7 @@ import Data.Char
 import Data.List
 import Data.Bits
 import qualified Data.Vector as V
+import Utils
 
 -- ** data types **
 
@@ -33,13 +34,14 @@ instance Show Piece where
   
 -- ** output functions **
 
-readPieceType :: Char -> PieceType
-readPieceType 'K' = King
-readPieceType 'Q' = Queen
-readPieceType 'N' = Knight
-readPieceType 'R' = Rook
-readPieceType 'B' = Bishop
-readPieceType _ = Pawn
+readPieceType :: Char -> Maybe PieceType
+readPieceType 'K' = Just King
+readPieceType 'Q' = Just Queen
+readPieceType 'N' = Just Knight
+readPieceType 'R' = Just Rook
+readPieceType 'B' = Just Bishop
+readPieceType 'P' = Just Pawn
+readPieceType _ = Nothing
 
 showPieceSquare :: Piece -> String
 showPieceSquare Piece {square=sq} = showSquare sq
@@ -90,12 +92,6 @@ file n = n .&. 7
 
 rank :: Int -> Int
 rank n = n `shiftR` 3
-
-splitEvery :: Int -> [a] -> [[a]]
-splitEvery n = takeWhile (not . null) . map (take n) . iterate (drop n)
-
-surround :: String -> String -> String
-surround s str = s ++ str ++ s
 
 occupant :: Board -> Square -> Maybe Piece
 occupant b sq = b V.! sq

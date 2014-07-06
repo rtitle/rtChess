@@ -1,6 +1,6 @@
 module Moves where
-import Board
 import Control.Applicative
+import Board
 
 data Direction = N | S | E | W deriving (Eq, Show)
                    

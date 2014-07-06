@@ -15,5 +15,6 @@ executable rtChess
   other-modules:   
                    Board,
                    Moves,
-                   Game
+                   Game,
+                   Utils
 
