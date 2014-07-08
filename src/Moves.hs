@@ -8,21 +8,6 @@ data Move = Move { fromPiece :: Piece,
                    toPiece :: Piece,
                    capturedPiece :: Maybe Piece }
 
--- not yet implemented: castling, pawn promotion, check, checkmate
-instance Show Move where
-  show (Move from to cap)
-    -- pawn capture (exd4)
-    | pieceType from == Pawn && cap /= Nothing = (head . showPieceSquare $ from) : "x" ++ showPieceSquare to
-    
-    -- pawn move (d6)
-    | pieceType from == Pawn = showPieceSquare to
-     
-    -- piece capture (Qxh2)
-    | cap /= Nothing = show (pieceType to) ++ "x" ++ showPieceSquare to
-    
-    -- piece move (Nf3)
-    | otherwise = show (pieceType to) ++ showPieceSquare to
-
 allDirections :: [Direction]
 allDirections = [N, S, E, W]
 

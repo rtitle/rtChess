@@ -14,7 +14,7 @@ play game = do
   mv <- getMove
   let (mvs,g) = runState (playGame [mv]) game
   putStrLn $ prettyPieces . pieces $ g
-  putStrLn $ show (length mvs) ++ " possible moves for " ++ show (turn g) ++ ": " ++ show mvs
+  putStrLn $ show (length mvs) ++ " possible moves for " ++ show (turn g) ++ ": " ++ (show $ map (showMove g) mvs)
   play g
 
 main :: IO ()

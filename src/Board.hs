@@ -44,7 +44,7 @@ readPieceType 'P' = Just Pawn
 readPieceType _ = Nothing
 
 showPieceSquare :: Piece -> String
-showPieceSquare Piece {square=sq} = showSquare sq
+showPieceSquare = showSquare . square
 
 showSquare :: Square -> String
 showSquare s = f:r where
@@ -79,9 +79,9 @@ prettyBoard = unlines .
 
 toBoard :: Pieces -> Board
 toBoard [] = V.fromList $ replicate 64 Nothing
-toBoard ps = V.fromList $ pad 64 $ foldl combine (-1, []) sortedPieces where
-  combine acc p@Piece {square = sq} = (sq, pad sq acc ++ [Just p])
-  pad curSq (lastSq, acc) =  acc ++ (replicate (curSq-lastSq-1) Nothing)
+toBoard ps = V.fromList $ pad (-1) $ foldr combine (64, []) sortedPieces where
+  combine p@Piece {square = sq} acc = (sq, Just p:pad sq acc)
+  pad curSq (lastSq, acc) =  replicate (lastSq-curSq-1) Nothing ++ acc
   sortedPieces = sortBy comparingSquare ps
 
 -- ** auxiliary helper functions **
