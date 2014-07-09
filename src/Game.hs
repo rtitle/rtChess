@@ -1,23 +1,21 @@
 module Game where
 import qualified Data.Vector as V
-import Control.Monad.State
-import Control.Monad.Writer
 import Control.Monad.RWS
 import Board
 import Moves
 
-data Game = Game { pieces :: Pieces,
-                   board :: Board,
-                   turn :: PieceColor }
+data Game = Game { 
+  pieces :: Pieces,
+  board :: Board,
+  turn :: PieceColor }
                    
-type MonadStack = RWS () [String] Game Bool
+type MonadStack = RWS () [String] Game
                              
-makeMove :: Move -> MonadStack
+makeMove :: Move -> MonadStack ()
 makeMove move = do
   (Game ps b t) <- get
   tell [showMove b ps t move]
   put $ Game (updatePieces ps move) (updateBoard b move) (reverseColor t)
-  return True
 
 updatePieces :: Pieces -> Move -> Pieces
 updatePieces ps (Move p1 p2 Nothing) = p2 : filter (/=p1) ps
@@ -30,7 +28,7 @@ updateBoard b (Move p1 p2 (Just c)) = b V.// [(square p1, Nothing), (square p2, 
 newGame :: Game
 newGame = Game initialPieces (toBoard initialPieces) White
 
-playGame :: [String] -> Bool -> MonadStack
+playGame :: [String] -> Bool -> MonadStack Bool
 playGame [] acc = return acc
 playGame (x:xs) acc = do
   (Game ps b t) <- get

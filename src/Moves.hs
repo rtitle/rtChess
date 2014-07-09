@@ -1,13 +1,15 @@
 module Moves where
 import Data.Maybe
+import Data.List
 import Control.Applicative
 import Board
 
 data Direction = N | S | E | W deriving (Eq, Show)
                    
-data Move = Move { fromPiece :: Piece,
-                   toPiece :: Piece,
-                   capturedPiece :: Maybe Piece }
+data Move = Move { 
+  fromPiece :: Piece,
+  toPiece :: Piece,
+  capturedPiece :: Maybe Piece }
 
 allDirections :: [Direction]
 allDirections = [N, S, E, W]
@@ -43,7 +45,7 @@ initialMoves :: [Move]
 initialMoves = allMoves (toBoard initialPieces) initialPieces White
 
 allMoves :: Board -> Pieces -> PieceColor -> [Move]
-allMoves b p pc = concatMap (moves b) (filter (\c -> pc == pieceColor c) p)
+allMoves b p pc = sortBy comparingMove $ concatMap (moves b) (filter (\c -> pc == pieceColor c) p)
 
 -- not yet implemented: castling, en passant, pawn promotion
 moves :: Board -> Piece -> [Move]
@@ -180,3 +182,11 @@ readMove b ps t s =
   in headMaybe $ filter fm (allMoves b ps t)
   where headMaybe (x:[]) = Just x
         headMaybe _ = Nothing
+        
+comparingMove :: Move -> Move -> Ordering
+comparingMove p1 p2 
+  | comparePieceType == EQ = comparePieceSquare
+  | otherwise = comparePieceType
+  where 
+    comparePieceType = compare (pieceType . fromPiece $ p1) (pieceType . fromPiece $ p2)
+    comparePieceSquare = compare (square . fromPiece $ p1) (square . fromPiece $ p2)

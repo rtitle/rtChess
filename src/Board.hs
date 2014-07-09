@@ -1,12 +1,12 @@
 module Board where
+import Data.Bits
 import Data.Char
 import Data.List
-import Data.Bits
 import qualified Data.Vector as V
 import Utils
 
 type Square = Int
-data PieceType = Rook | Knight | Bishop | King | Queen | Pawn deriving Eq
+data PieceType = King | Queen | Rook | Bishop | Knight | Pawn deriving (Eq, Ord)
 data PieceColor = Black | White deriving (Eq, Show)
 data Piece = Piece { 
   pieceType :: PieceType, 
