@@ -1,4 +1,5 @@
 module Moves where
+import Data.Maybe
 import Control.Applicative
 import Board
 
@@ -37,6 +38,9 @@ blackPawnDirections = [[S]]
 
 blackPawnCaptureDirections :: [[Direction]]
 blackPawnCaptureDirections = [[S,E], [S,W]]
+
+initialMoves :: [Move]
+initialMoves = allMoves (toBoard initialPieces) initialPieces White
 
 allMoves :: Board -> Pieces -> PieceColor -> [Move]
 allMoves b p pc = concatMap (moves b) (filter (\c -> pc == pieceColor c) p)
@@ -125,10 +129,54 @@ isCapture b pc s = Just pc == fmap (reverseColor . pieceColor) (occupant b s)
 
 isEmptySquare :: Board -> Square -> Bool
 isEmptySquare b s = occupant b s == Nothing
-                    
+
 canMove :: Board -> [Direction] -> (Square -> Bool) -> Square -> Square -> Bool
 canMove b d f initSq curSq = 
   onBoards initSq curSq d &&
     (prevSq == initSq || occupant b prevSq == Nothing) &&
     f curSq
   where prevSq = curSq - offsets d
+  
+showMove :: Board -> Pieces -> PieceColor -> Move -> String
+showMove b ps t m@(Move from to cap)
+  -- pawn capture (exd4)
+  | pieceType from == Pawn && isJust cap = (head fromPieceSquare) : "x" ++ toPieceSquare
+    
+  -- pawn move (d6)
+  | pieceType from == Pawn = toPieceSquare
+     
+  -- piece capture (Qxh2)
+  | isJust cap = show (pieceType to) ++ rankOrFile ++ "x" ++ toPieceSquare
+    
+  -- piece move (Nf3)
+  | otherwise = show (pieceType to) ++ rankOrFile ++ toPieceSquare
+  where 
+    fromPieceSquare = showSquare . square $ from
+    toPieceSquare = showSquare . square $ to
+    disambiguate [] = ""
+    disambiguate [x] = take 1 . filter (`notElem` (show . square $ x)) $ fromPieceSquare
+    disambiguate _ = fromPieceSquare
+    ambiguous m' = 
+      (pieceType . fromPiece $ m) == (pieceType . fromPiece $ m') &&
+      (pieceColor . fromPiece $ m) == (pieceColor . fromPiece $ m') &&
+      (square . toPiece $ m) == (square . toPiece $ m') &&
+      (square . fromPiece $ m) /= (square $ fromPiece $ m')
+    rankOrFile = disambiguate . map fromPiece $ filter ambiguous (allMoves b ps t)
+               
+readMove :: Board -> Pieces -> PieceColor -> String -> Maybe Move
+readMove b ps t s = 
+  let (toSq, pt, fromFileOrRank) = case s of 
+       r:f:[] -> (readSquare (r:[f]), Just Pawn, Nothing)
+       p:r:f:[] -> (readSquare (r:[f]), readPieceType p, Nothing)
+       p:'x':r:f:[] -> case readPieceType p of
+                         Just ptype -> (readSquare (r:[f]), Just ptype, Nothing)
+                         Nothing -> (readSquare (r:[f]), Just Pawn, Just p)
+       p:rf:r:f:[] -> (readSquare (r:[f]), readPieceType p, Just rf)
+       p:rf:'x':r:f:[] -> (readSquare (r:[f]), readPieceType p, Just rf)
+       _ -> (readSquare "a1", Nothing, Nothing)
+      fm m = toSq == (square . toPiece $ m) &&
+             pt == Just (pieceType . toPiece $ m) &&
+             (fromFileOrRank == Nothing || any (\x -> (Just x) == fromFileOrRank) (showSquare . square . fromPiece $ m))
+  in headMaybe $ filter fm (allMoves b ps t)
+  where headMaybe (x:[]) = Just x
+        headMaybe _ = Nothing

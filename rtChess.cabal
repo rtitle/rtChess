@@ -9,6 +9,7 @@ executable rtChess
   main-is:         Main.hs
   build-depends:   base >= 4,
                    vector,
+                   split,
                    mtl
   ghc-options:     -Wall
   other-modules:   

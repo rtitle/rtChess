@@ -5,19 +5,17 @@ import Data.Bits
 import qualified Data.Vector as V
 import Utils
 
--- ** data types **
-
 type Square = Int
 data PieceType = Rook | Knight | Bishop | King | Queen | Pawn deriving Eq
 data PieceColor = Black | White deriving (Eq, Show)
-data Piece = Piece { pieceType :: PieceType, 
-                     pieceColor :: PieceColor,
-                     square :: Square } deriving Eq          
--- use both pieces and squares to represent the board
+data Piece = Piece { 
+  pieceType :: PieceType, 
+  pieceColor :: PieceColor,
+  square :: Square } deriving Eq
+  
+-- we use both a list of pieces and a vector of squares to represent the board
 type Pieces = [Piece]
 type Board = V.Vector (Maybe Piece)
- 
--- ** type class instances **
 
 instance Show PieceType where
   show King = "K"
@@ -28,11 +26,9 @@ instance Show PieceType where
   show Pawn = "P"
   
 instance Show Piece where
-  -- black pieces are lowercase
+  -- black pieces are displayed as lowercase
   show (Piece pt Black _) = map toLower (show pt)
   show (Piece pt White _) = show pt
-  
--- ** output functions **
 
 readPieceType :: Char -> Maybe PieceType
 readPieceType 'K' = Just King
@@ -42,9 +38,6 @@ readPieceType 'R' = Just Rook
 readPieceType 'B' = Just Bishop
 readPieceType 'P' = Just Pawn
 readPieceType _ = Nothing
-
-showPieceSquare :: Piece -> String
-showPieceSquare = showSquare . square
 
 showSquare :: Square -> String
 showSquare s = f:r where
@@ -83,8 +76,6 @@ toBoard ps = V.fromList $ pad (-1) $ foldr combine (64, []) sortedPieces where
   combine p@Piece {square = sq} acc = (sq, Just p:pad sq acc)
   pad curSq (lastSq, acc) =  replicate (lastSq-curSq-1) Nothing ++ acc
   sortedPieces = sortBy comparingSquare ps
-
--- ** auxiliary helper functions **
 
 comparingSquare :: Piece -> Piece -> Ordering
 comparingSquare p1 p2 = compare (square p1) (square p2)
