@@ -5,11 +5,14 @@ import Control.Applicative
 import Board
 
 data Direction = N | S | E | W deriving (Eq, Show)
+
+data Castle = Kingside | Queenside deriving Eq
                    
 data Move = Move { 
   fromPiece :: Piece,
   toPiece :: Piece,
-  capturedPiece :: Maybe Piece }
+  capturedPiece :: Maybe Piece,
+  castle :: Maybe Castle }
 
 allDirections :: [Direction]
 allDirections = [N, S, E, W]
@@ -60,7 +63,8 @@ moves b p@(Piece pt pc sq)
   | pt == Queen = map mkMove $ concatMap (genRepeatingMoves moveOrCapture) queenDirections
   
   --king
-  | pt == King = map mkMove $ concatMap (genSingleMove moveOrCapture) kingDirections
+  | pt == King = (map mkMove $ concatMap (genSingleMove moveOrCapture) kingDirections) ++ 
+                 (map mkCastleMove $ castles b pc)
   
   -- knight
   | pt == Knight = map mkMove $ concatMap (genSingleMove moveOrCapture) knightDirections
@@ -91,7 +95,8 @@ moves b p@(Piece pt pc sq)
         
   | otherwise = []
         
-  where mkMove s = Move p (Piece pt pc s) (occupant b s)
+  where mkMove s = Move p (Piece pt pc s) (occupant b s) Nothing
+        mkCastleMove c = Move p p Nothing $ Just c
         moveOrCapture = liftA2 (||) moveOnly captureOnly
         moveOnly = isEmptySquare b
         captureOnly = isCapture b pc
@@ -101,6 +106,17 @@ moves b p@(Piece pt pc sq)
         
 genMoves :: Board -> Square -> Int -> (Square -> Bool) -> [Direction] -> [Square]
 genMoves b sq n f d = takeWhile (canMove b d f sq). take n . drop 1 . iterate (+offsets d) $ sq
+
+castles :: Board -> PieceColor -> [Castle]
+castles b t = filter f [Kingside, Queenside] where
+  f c = case (c,t) of
+    (Kingside, White) -> rook "h1" && emptySq "g1" && emptySq "f1" && king "e1" 
+    (Kingside, Black) -> rook "h8" && emptySq "g8" && emptySq "f8" && king "e8" 
+    (Queenside, White) -> rook "a1" && emptySq "b1" && emptySq "c1" && emptySq "d1" && king "e1" 
+    (Queenside, Black) -> rook "a8" && emptySq "b8" && emptySq "c8" && emptySq "d8" && king "e8" 
+  rook sq = let s = readSquare sq in occupant b s == Just (Piece Rook t s)
+  king sq = let s = readSquare sq in occupant b s == Just (Piece King t s)
+  emptySq sq = let s = readSquare sq in occupant b s == Nothing
 
 offset :: Direction -> Int
 offset N = 8
@@ -140,7 +156,13 @@ canMove b d f initSq curSq =
   where prevSq = curSq - offsets d
   
 showMove :: Board -> Pieces -> PieceColor -> Move -> String
-showMove b ps t m@(Move from to cap)
+showMove b ps t m@(Move from to cap cas)
+  -- kingside castle (0-0)
+  | cas == Just Kingside = "0-0"
+  
+  -- queenside castle (0-0-0)
+  | cas == Just Queenside = "0-0-0"
+  
   -- pawn capture (exd4)
   | pieceType from == Pawn && isJust cap = (head fromPieceSquare) : "x" ++ toPieceSquare
     

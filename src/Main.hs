@@ -1,5 +1,6 @@
 module Main where
 import System.Exit
+import System.IO
 import Data.List.Split
 import Control.Monad.RWS
 import Board
@@ -25,10 +26,16 @@ gameMoves (Game ps b t) =
   (show . map (showMove b ps t) $ mvs)
   where mvs = allMoves b ps t
   
+showBoard :: Game -> String
+showBoard g = prettyPieces . pieces $ g
+  
 run :: Game -> [String] -> IO ()
 run g lg = do
-  putStrLn "\ncommand:"
+  putStr "> "
+  hFlush stdout
   l <- getLine
+  when (l == "") $ do
+    run g lg
   when (l == "help") $ do  
     putStrLn help
     run g lg
@@ -39,7 +46,7 @@ run g lg = do
     putStrLn "Starting new game."
     run newGame []
   when (l == "board") $ do
-    putStrLn $ prettyPieces . pieces $ g
+    putStrLn $ showBoard g
     run g lg
   when (l == "game") $ do
     putStrLn "Game so far:"
@@ -49,11 +56,10 @@ run g lg = do
     putStrLn "Thanks for playing!"
     exitSuccess
   let input = splitOn " " l
-  let (res', g', lg') = runRWS (playGame input True) () g
+  let (res', g', lg') = runRWS (playGame input) () g
   case res' of
-    True -> putStrLn $ "Made move(s): " ++ l
-    False -> 
-      putStrLn $ "Invalid move(s): " ++ l ++ "\n" ++ (gameMoves g)
+    Right _ -> putStrLn $ "Made move(s): " ++ l
+    Left s -> putStrLn s
   run g' (lg++lg')
 
 main :: IO ()

@@ -18,23 +18,23 @@ makeMove move = do
   put $ Game (updatePieces ps move) (updateBoard b move) (reverseColor t)
 
 updatePieces :: Pieces -> Move -> Pieces
-updatePieces ps (Move p1 p2 Nothing) = p2 : filter (/=p1) ps
-updatePieces ps (Move p1 p2 (Just c)) = p2 : filter (liftM2 (&&) (/=p1) (/=c)) ps
+updatePieces ps (Move p1 p2 Nothing _) = p2 : filter (/=p1) ps
+updatePieces ps (Move p1 p2 (Just c) _) = p2 : filter (liftM2 (&&) (/=p1) (/=c)) ps
 
 updateBoard :: Board -> Move -> Board
-updateBoard b (Move p1 p2 Nothing) = b V.// [(square p1, Nothing), (square p2, Just p2)]
-updateBoard b (Move p1 p2 (Just c)) = b V.// [(square p1, Nothing), (square p2, Just p2), (square c, Just p2)]
+updateBoard b (Move p1 p2 Nothing _) = b V.// [(square p1, Nothing), (square p2, Just p2)]
+updateBoard b (Move p1 p2 (Just c) _) = b V.// [(square p1, Nothing), (square p2, Just p2), (square c, Just p2)]
 
 newGame :: Game
 newGame = Game initialPieces (toBoard initialPieces) White
 
-playGame :: [String] -> Bool -> MonadStack Bool
-playGame [] acc = return acc
-playGame (x:xs) acc = do
+playGame :: [String] -> MonadStack (Either String ())
+playGame [] = return $ Right ()
+playGame (x:xs) = do
   (Game ps b t) <- get
   let maybeM = readMove b ps t x
   case maybeM of
     Just m -> do
       _ <- makeMove m
-      playGame xs acc
-    _ -> return False
+      playGame xs
+    _ -> return . Left $ "Invalid move: " ++ x
