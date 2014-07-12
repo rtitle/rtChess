@@ -50,7 +50,7 @@ initialMoves = allMoves (toBoard initialPieces) initialPieces White
 allMoves :: Board -> Pieces -> PieceColor -> [Move]
 allMoves b p pc = sortBy comparingMove $ concatMap (moves b) (filter (\c -> pc == pieceColor c) p)
 
--- not yet implemented: castling, en passant, pawn promotion
+-- not yet implemented: en passant, pawn promotion
 moves :: Board -> Piece -> [Move]
 moves b p@(Piece pt pc sq) 
   -- rook
@@ -117,6 +117,17 @@ castles b t = filter f [Kingside, Queenside] where
   rook sq = let s = readSquare sq in occupant b s == Just (Piece Rook t s)
   king sq = let s = readSquare sq in occupant b s == Just (Piece King t s)
   emptySq sq = let s = readSquare sq in occupant b s == Nothing
+  
+concatCastleMoves :: PieceColor -> Castle -> [Move]
+concatCastleMoves pc c = [castlingKing pc c, castlingRook pc c] where
+  castlingKing White Kingside = Move (Piece King White $ readSquare "e1") (Piece King White $ readSquare "g1") Nothing Nothing
+  castlingKing Black Kingside = Move (Piece King Black $ readSquare "e8") (Piece King Black $ readSquare "g8") Nothing Nothing
+  castlingKing White Queenside = Move (Piece King White $ readSquare "e1") (Piece King White $ readSquare "c1") Nothing Nothing
+  castlingKing Black Queenside = Move (Piece King Black $ readSquare "e8") (Piece King Black $ readSquare "c8") Nothing Nothing
+  castlingRook White Kingside = Move (Piece Rook White $ readSquare "h1") (Piece Rook White $ readSquare "f1") Nothing Nothing
+  castlingRook Black Kingside = Move (Piece Rook Black $ readSquare "h8") (Piece Rook Black $ readSquare "f8") Nothing Nothing
+  castlingRook White Queenside = Move (Piece Rook White $ readSquare "a1") (Piece Rook White $ readSquare "d1") Nothing Nothing
+  castlingRook Black Queenside = Move (Piece Rook Black $ readSquare "a8") (Piece Rook Black $ readSquare "d8") Nothing Nothing
 
 offset :: Direction -> Int
 offset N = 8
@@ -189,21 +200,25 @@ showMove b ps t m@(Move from to cap cas)
                
 readMove :: Board -> Pieces -> PieceColor -> String -> Maybe Move
 readMove b ps t s = 
-  let (toSq, pt, fromFileOrRank) = case s of 
-       r:f:[] -> (readSquare (r:[f]), Just Pawn, Nothing)
-       p:r:f:[] -> (readSquare (r:[f]), readPieceType p, Nothing)
+  let (toSq, pt, fromFileOrRank, cas) = case s of 
+       "0-0" -> (castleKingSq, Just King, Nothing, Just Kingside)
+       "0-0-0" -> (castleKingSq, Just King, Nothing, Just Queenside)
+       r:f:[] -> (readSquare (r:[f]), Just Pawn, Nothing, Nothing)
+       p:r:f:[] -> (readSquare (r:[f]), readPieceType p, Nothing, Nothing)
        p:'x':r:f:[] -> case readPieceType p of
-                         Just ptype -> (readSquare (r:[f]), Just ptype, Nothing)
-                         Nothing -> (readSquare (r:[f]), Just Pawn, Just p)
-       p:rf:r:f:[] -> (readSquare (r:[f]), readPieceType p, Just rf)
-       p:rf:'x':r:f:[] -> (readSquare (r:[f]), readPieceType p, Just rf)
-       _ -> (readSquare "a1", Nothing, Nothing)
-      fm m = toSq == (square . toPiece $ m) &&
+                         Just ptype -> (readSquare (r:[f]), Just ptype, Nothing, Nothing)
+                         Nothing -> (readSquare (r:[f]), Just Pawn, Just p, Nothing)
+       p:rf:r:f:[] -> (readSquare (r:[f]), readPieceType p, Just rf, Nothing)
+       p:rf:'x':r:f:[] -> (readSquare (r:[f]), readPieceType p, Just rf, Nothing)
+       _ -> (readSquare "a1", Nothing, Nothing, Nothing)
+      fm m = cas == (castle m) &&
+             toSq == (square . toPiece $ m) &&
              pt == Just (pieceType . toPiece $ m) &&
              (fromFileOrRank == Nothing || any (\x -> (Just x) == fromFileOrRank) (showSquare . square . fromPiece $ m))
   in headMaybe $ filter fm (allMoves b ps t)
   where headMaybe (x:[]) = Just x
         headMaybe _ = Nothing
+        castleKingSq = readSquare $ if t == White then "e1" else "e8"
         
 comparingMove :: Move -> Move -> Ordering
 comparingMove p1 p2 
