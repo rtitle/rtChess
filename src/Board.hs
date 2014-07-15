@@ -93,6 +93,9 @@ reverseColor :: PieceColor -> PieceColor
 reverseColor White = Black
 reverseColor _ = White
 
+promotablePieces :: [PieceType]
+promotablePieces = [Knight, Bishop, Rook, Queen]
+
 -- ** some boards **
 
 initialPieces :: Pieces

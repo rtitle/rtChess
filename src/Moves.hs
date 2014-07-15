@@ -50,7 +50,7 @@ initialMoves = allMoves (toBoard initialPieces) initialPieces White
 allMoves :: Board -> Pieces -> PieceColor -> [Move]
 allMoves b p pc = sortBy comparingMove $ concatMap (moves b) (filter (\c -> pc == pieceColor c) p)
 
--- not yet implemented: en passant, pawn promotion
+-- not yet implemented: en passant
 moves :: Board -> Piece -> [Move]
 moves b p@(Piece pt pc sq) 
   -- rook
@@ -63,8 +63,9 @@ moves b p@(Piece pt pc sq)
   | pt == Queen = map mkMove $ concatMap (genRepeatingMoves moveOrCapture) queenDirections
   
   --king
-  | pt == King = (map mkMove $ concatMap (genSingleMove moveOrCapture) kingDirections) ++ 
-                 (map mkCastleMove $ castles b pc)
+  | pt == King = 
+      (map mkMove $ concatMap (genSingleMove moveOrCapture) kingDirections) ++ 
+      (map mkCastleMove $ castles b pc)
   
   -- knight
   | pt == Knight = map mkMove $ concatMap (genSingleMove moveOrCapture) knightDirections
@@ -73,6 +74,12 @@ moves b p@(Piece pt pc sq)
   | (pt, pc, rank sq) == (Pawn, White, 1) =
       map mkMove $ 
         concatMap (genDoubleMove moveOnly) whitePawnDirections ++
+        concatMap (genSingleMove captureOnly) whitePawnCaptureDirections
+        
+  -- white pawn on the 7th rank
+  | (pt, pc, rank sq) == (Pawn, White, 6) =
+      concatMap mkPromotionMove $ 
+        concatMap (genSingleMove moveOnly) whitePawnDirections ++
         concatMap (genSingleMove captureOnly) whitePawnCaptureDirections
   
   -- white pawn
@@ -86,6 +93,12 @@ moves b p@(Piece pt pc sq)
       map mkMove $ 
         concatMap (genDoubleMove moveOnly) blackPawnDirections ++ 
         concatMap (genSingleMove captureOnly) blackPawnCaptureDirections
+        
+  -- black pawn on the 2nd rank
+  | (pt, pc, rank sq) == (Pawn, Black, 1) =
+      concatMap mkPromotionMove $ 
+        concatMap (genSingleMove moveOnly) blackPawnDirections ++
+        concatMap (genSingleMove captureOnly) blackPawnCaptureDirections
          
   -- black pawn
   | (pt, pc) == (Pawn, Black) =
@@ -97,6 +110,7 @@ moves b p@(Piece pt pc sq)
         
   where mkMove s = Move p (Piece pt pc s) (occupant b s) Nothing
         mkCastleMove c = Move p p Nothing $ Just c
+        mkPromotionMove s = map (\prom -> Move p (Piece prom pc s) (occupant b s) Nothing) promotablePieces
         moveOrCapture = liftA2 (||) moveOnly captureOnly
         moveOnly = isEmptySquare b
         captureOnly = isCapture b pc
@@ -107,6 +121,7 @@ moves b p@(Piece pt pc sq)
 genMoves :: Board -> Square -> Int -> (Square -> Bool) -> [Direction] -> [Square]
 genMoves b sq n f d = takeWhile (canMove b d f sq). take n . drop 1 . iterate (+offsets d) $ sq
 
+-- these castle functions could be made better
 castles :: Board -> PieceColor -> [Castle]
 castles b t = filter f [Kingside, Queenside] where
   f c = case (c,t) of
@@ -159,6 +174,19 @@ isCapture b pc s = Just pc == fmap (reverseColor . pieceColor) (occupant b s)
 isEmptySquare :: Board -> Square -> Bool
 isEmptySquare b s = occupant b s == Nothing
 
+-- TODO: add logic for can't castle through check
+  --notInCheck ["e1", "f1", "g1"] 
+  --notInCheck ["e8", "f8", "g8"]
+  --notInCheck ["e1", "d1", "c1"]
+  --notInCheck ["e8", "d8", "c8"]
+  --notInCheck = all (\s -> not . isSquareAttacked b ps t $ readSquare s)
+  
+isKingInCheck :: Board -> Pieces -> PieceColor -> Bool
+isKingInCheck b ps pc = Just King `elem` map (fmap pieceType . capturedPiece) (allMoves b ps $ reverseColor pc)
+
+isSquareAttacked :: Board -> Pieces -> PieceColor -> Square -> Bool
+isSquareAttacked b ps pc sq = sq `elem` map (square . toPiece) (allMoves b ps $ reverseColor pc)
+
 canMove :: Board -> [Direction] -> (Square -> Bool) -> Square -> Square -> Bool
 canMove b d f initSq curSq = 
   onBoards initSq curSq d &&
@@ -174,8 +202,14 @@ showMove b ps t m@(Move from to cap cas)
   -- queenside castle (0-0-0)
   | cas == Just Queenside = "0-0-0"
   
+  -- pawn capture promotion (axb1=N)
+  | pieceType from == Pawn && pieceType to /= Pawn && isJust cap = (head fromPieceSquare) : "x" ++ toPieceSquare ++ "=" ++ (show . pieceType $ to)
+  
   -- pawn capture (exd4)
   | pieceType from == Pawn && isJust cap = (head fromPieceSquare) : "x" ++ toPieceSquare
+  
+  -- pawn promotion (e8=Q)
+  | pieceType from == Pawn && pieceType to /= Pawn = toPieceSquare ++ "=" ++ (show . pieceType $ to)
     
   -- pawn move (d6)
   | pieceType from == Pawn = toPieceSquare
@@ -208,6 +242,8 @@ readMove b ps t s =
        p:'x':r:f:[] -> case readPieceType p of
                          Just ptype -> (readSquare (r:[f]), Just ptype, Nothing, Nothing)
                          Nothing -> (readSquare (r:[f]), Just Pawn, Just p, Nothing)
+       r:f:'=':prom:[] -> (readSquare (r:[f]), readPieceType prom, Nothing, Nothing)
+       p:'x':r:f:'=':prom:[] -> (readSquare (r:[f]), readPieceType prom, Just p, Nothing)
        p:rf:r:f:[] -> (readSquare (r:[f]), readPieceType p, Just rf, Nothing)
        p:rf:'x':r:f:[] -> (readSquare (r:[f]), readPieceType p, Just rf, Nothing)
        _ -> (readSquare "a1", Nothing, Nothing, Nothing)
