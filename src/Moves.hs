@@ -1,6 +1,7 @@
 module Moves where
 import Data.Maybe
 import Data.List
+import qualified Data.Vector as V
 import Control.Applicative
 import Board
 
@@ -45,12 +46,31 @@ blackPawnCaptureDirections :: [[Direction]]
 blackPawnCaptureDirections = [[S,E], [S,W]]
 
 initialMoves :: [Move]
-initialMoves = allMoves (toBoard initialPieces) initialPieces White
+initialMoves = legalMoves (toBoard initialPieces) initialPieces White
 
 allMoves :: Board -> Pieces -> PieceColor -> [Move]
 allMoves b p pc = sortBy comparingMove $ concatMap (moves b) (filter (\c -> pc == pieceColor c) p)
 
--- not yet implemented: en passant
+legalMoves :: Board -> Pieces -> PieceColor -> [Move]
+legalMoves b p pc = filter notInCheck $ allMoves b p pc where
+  notInCheck (Move _ _ _ (Just cas)) = case (pc, cas) of
+    (White, Kingside) -> all (\s -> not . isSquareAttacked b p pc $ readSquare s) ["e1", "f1", "g1"]
+    (Black, Kingside) -> all (\s -> not . isSquareAttacked b p pc $ readSquare s) ["e8", "f8", "g8"]
+    (White, Queenside) -> all (\s -> not . isSquareAttacked b p pc $ readSquare s) ["e1", "d1", "c1"]
+    (Black, Queenside) -> all (\s -> not . isSquareAttacked b p pc $ readSquare s) ["e8", "d8", "c8"]
+  notInCheck m = not $ isKingInCheck (updateBoard b m) (updatePieces p m) pc
+  
+updatePieces :: Pieces -> Move -> Pieces
+updatePieces ps (Move p1 _ _ (Just cas)) = foldl updatePieces ps (concatCastleMoves (pieceColor p1) cas)
+updatePieces ps (Move p1 p2 Nothing _) = p2 : filter (/=p1) ps
+updatePieces ps (Move p1 p2 (Just c) _) = p2 : filter (liftA2 (&&) (/=p1) (/=c)) ps
+
+updateBoard :: Board -> Move -> Board
+updateBoard b (Move p1 _ _ (Just cas)) = foldl updateBoard b (concatCastleMoves (pieceColor p1) cas)
+updateBoard b (Move p1 p2 Nothing _) = b V.// [(square p1, Nothing), (square p2, Just p2)]
+updateBoard b (Move p1 p2 (Just c) _) = b V.// [(square p1, Nothing), (square p2, Just p2), (square c, Just p2)]
+
+-- not yet implemented: game state affecting castling, en passant
 moves :: Board -> Piece -> [Move]
 moves b p@(Piece pt pc sq) 
   -- rook
@@ -173,19 +193,12 @@ isCapture b pc s = Just pc == fmap (reverseColor . pieceColor) (occupant b s)
 
 isEmptySquare :: Board -> Square -> Bool
 isEmptySquare b s = occupant b s == Nothing
-
--- TODO: add logic for can't castle through check
-  --notInCheck ["e1", "f1", "g1"] 
-  --notInCheck ["e8", "f8", "g8"]
-  --notInCheck ["e1", "d1", "c1"]
-  --notInCheck ["e8", "d8", "c8"]
-  --notInCheck = all (\s -> not . isSquareAttacked b ps t $ readSquare s)
   
 isKingInCheck :: Board -> Pieces -> PieceColor -> Bool
 isKingInCheck b ps pc = Just King `elem` map (fmap pieceType . capturedPiece) (allMoves b ps $ reverseColor pc)
 
 isSquareAttacked :: Board -> Pieces -> PieceColor -> Square -> Bool
-isSquareAttacked b ps pc sq = sq `elem` map (square . toPiece) (allMoves b ps $ reverseColor pc)
+isSquareAttacked b ps pc sq = sq `elem` map (square . toPiece) (legalMoves b ps $ reverseColor pc)
 
 canMove :: Board -> [Direction] -> (Square -> Bool) -> Square -> Square -> Bool
 canMove b d f initSq curSq = 
@@ -251,7 +264,7 @@ readMove b ps t s =
              toSq == (square . toPiece $ m) &&
              pt == Just (pieceType . toPiece $ m) &&
              (fromFileOrRank == Nothing || any (\x -> (Just x) == fromFileOrRank) (showSquare . square . fromPiece $ m))
-  in headMaybe $ filter fm (allMoves b ps t)
+  in headMaybe $ filter fm (legalMoves b ps t)
   where headMaybe (x:[]) = Just x
         headMaybe _ = Nothing
         castleKingSq = readSquare $ if t == White then "e1" else "e8"

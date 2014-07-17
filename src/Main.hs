@@ -24,7 +24,11 @@ gameMoves (Game ps b t) =
   show t ++ 
   ":\n" ++ 
   (show . map (showMove b ps t) $ mvs)
-  where mvs = allMoves b ps t
+  where mvs = legalMoves b ps t
+  
+showGameLog :: [String] -> String
+showGameLog lg = foldr showLine "" $ zip ([1..]::[Integer]) $ chunksOf 2 lg where
+  showLine ln acc = (show . fst $ ln) ++ ". " ++ foldr (\x ac -> x ++ "\t" ++ ac) "" (snd ln) ++ "\n" ++ acc
   
 showBoard :: Game -> String
 showBoard g = prettyPieces . pieces $ g
@@ -50,7 +54,7 @@ run g lg = do
     run g lg
   when (l == "game") $ do
     putStrLn "Game so far:"
-    putStrLn $ show lg
+    putStrLn $ showGameLog lg
     run g lg
   when (l == "exit") $ do
     putStrLn "Thanks for playing!"
