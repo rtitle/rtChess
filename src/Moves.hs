@@ -52,7 +52,7 @@ allMoves :: Board -> Pieces -> PieceColor -> [Move]
 allMoves b p pc = sortBy comparingMove $ concatMap (moves b) (filter (\c -> pc == pieceColor c) p)
 
 legalMoves :: Board -> Pieces -> PieceColor -> [Castle] -> [Move]
-legalMoves b p pc prohibitedCastles = filter (liftA2 (&&) notInCheck castleAllowed) $ allMoves b p pc where
+legalMoves b p pc prohibitedCastles = filter (liftA2 (&&) castleAllowed notInCheck) $ allMoves b p pc where
   notInCheck (Move _ _ _ (Just cas)) = case (pc, cas) of
     (White, Kingside) -> squaresNotAttacked ["e1", "f1", "g1"]
     (Black, Kingside) -> squaresNotAttacked ["e8", "f8", "g8"]
@@ -199,7 +199,7 @@ isKingInCheck :: Board -> Pieces -> PieceColor -> Bool
 isKingInCheck b ps pc = Just King `elem` map (fmap pieceType . capturedPiece) (allMoves b ps $ reverseColor pc)
 
 isSquareAttacked :: Board -> Pieces -> PieceColor -> Square -> Bool
-isSquareAttacked b ps pc sq = sq `elem` map (square . toPiece) (legalMoves b ps (reverseColor pc) [])
+isSquareAttacked b ps pc sq = sq `elem` map (square . toPiece) (legalMoves b ps (reverseColor pc) [Kingside, Queenside])
 
 canMove :: Board -> [Direction] -> (Square -> Bool) -> Square -> Square -> Bool
 canMove b d f initSq curSq = 
