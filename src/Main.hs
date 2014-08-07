@@ -17,14 +17,14 @@ help =
   "exit : exits the program"
 
 gameMoves :: Game -> String
-gameMoves (Game ps b t prohibCas) = 
+gameMoves (Game ps b t prohibCas ep) = 
   "There are " ++ 
   (show . length $ mvs) ++ 
   " possible moves for " ++ 
   show t ++ 
   ":\n" ++ 
   (show . map (showMove b ps t) $ mvs)
-  where mvs = legalMoves b ps t (getProhibitedCastles prohibCas t)
+  where mvs = legalMoves b ps t ep (getProhibitedCastles prohibCas t)
   
 showGameLog :: [String] -> String
 showGameLog lg = foldr showLine "" $ zip ([1..]::[Integer]) $ chunksOf 2 lg where
