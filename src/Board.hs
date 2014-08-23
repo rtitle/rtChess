@@ -1,3 +1,7 @@
+{- |
+Board.hs
+Contains functionality for representing a chessboard and pieces.
+-}
 module Board where
 import Data.Bits
 import Data.Char
@@ -5,17 +9,14 @@ import Data.List
 import qualified Data.Vector as V
 import Utils
 
+{- |
+  A Square is represented by an integer 0..63.
+  The board is oriented such that a1 is square 0, b1 is square 1, ..., and h8 is square 63.
+-}
 type Square = Int
+
+-- |Types of chess pieces.
 data PieceType = King | Queen | Rook | Bishop | Knight | Pawn deriving (Eq, Ord)
-data PieceColor = Black | White deriving (Eq, Show)
-data Piece = Piece { 
-  pieceType :: PieceType, 
-  pieceColor :: PieceColor,
-  square :: Square } deriving Eq
-  
--- we use both a list of pieces and a vector of squares to represent the board
-type Pieces = [Piece]
-type Board = V.Vector (Maybe Piece)
 
 instance Show PieceType where
   show King = "K"
@@ -24,36 +25,60 @@ instance Show PieceType where
   show Rook = "R"
   show Bishop = "B"
   show Pawn = "P"
+
+-- |Piece color is either white or black.
+data PieceColor = Black | White deriving (Eq, Show)
+
+-- |A Piece data structure consists of a piece type, piece color, and square.
+data Piece = Piece { 
+  pieceType :: PieceType, 
+  pieceColor :: PieceColor,
+  square :: Square } deriving Eq
   
 instance Show Piece where
   -- black pieces are displayed as lowercase
   show (Piece pt Black _) = map toLower (show pt)
   show (Piece pt White _) = show pt
+  
+-- |Representation of the board as a List of Pieces.
+type Pieces = [Piece]
 
+-- |Representation of the board as a Vector of squares.
+-- Vector is used instead of List for efficient lookup by square.
+type Board = V.Vector (Maybe Piece)
+
+-- |Reads a PieceType given a Char.  This function is case insensitive.
 readPieceType :: Char -> Maybe PieceType
-readPieceType 'K' = Just King
-readPieceType 'Q' = Just Queen
-readPieceType 'N' = Just Knight
-readPieceType 'R' = Just Rook
-readPieceType 'B' = Just Bishop
-readPieceType 'P' = Just Pawn
-readPieceType _ = Nothing
+readPieceType c = case toLower c of
+  'k' -> Just King
+  'q' -> Just Queen
+  'r' -> Just Rook
+  'b' -> Just Bishop
+  'n' -> Just Knight
+  'p' -> Just Pawn
+  _ -> Nothing
 
+-- |Shows a square in file-rank format.
+-- For example, passing in 28 returns "e4".
 showSquare :: Square -> String
 showSquare s = f:r where
   f = chr . (+ ord 'a') . file $ s
   r = show . succ . rank $ s
 
+-- |Reads a square in file-rank format.
+-- For example, passing in "e4" returns 28.  If an invalid string is passed in, -1 is returned.
 readSquare :: String -> Square
 readSquare [] = -1
 readSquare (f:r) 
-  | isNumber . head $ r = ord f - ord 'a' + 
-                          ((*8) . pred . read $ r)
+  | isNumber . head $ r = 
+    ord f - ord 'a' + ((*8) . pred . read $ r)
   | otherwise = -1
 
+-- |Converts Pieces to a printable String.
 prettyPieces :: Pieces -> String
 prettyPieces = prettyBoard . toBoard
   
+-- |Converts Board to a printable String.
 prettyBoard :: Board -> String
 prettyBoard = unlines . 
              (hline:) . 
@@ -70,6 +95,8 @@ prettyBoard = unlines .
   prettySquare Nothing = "   "
   prettySquare (Just p) = surround " " (show p)
 
+-- |Converts a Pieces to a Board.
+-- This method sorts the passed in Pieces by square and then traverses the List of Pieces to fill the Board vector.
 toBoard :: Pieces -> Board
 toBoard [] = V.fromList $ replicate 64 Nothing
 toBoard ps = V.fromList $ pad (-1) $ foldr combine (64, []) sortedPieces where
@@ -77,27 +104,32 @@ toBoard ps = V.fromList $ pad (-1) $ foldr combine (64, []) sortedPieces where
   pad curSq (lastSq, acc) =  replicate (lastSq-curSq-1) Nothing ++ acc
   sortedPieces = sortBy comparingSquare ps
 
+-- |Compares pieces by their squares.
 comparingSquare :: Piece -> Piece -> Ordering
 comparingSquare p1 p2 = compare (square p1) (square p2)
   
-file :: Int -> Int
+-- |Returns the file of a square.
+file :: Square -> Int
 file n = n .&. 7
 
-rank :: Int -> Int
+-- |Returns the rank of a square.
+rank :: Square -> Int
 rank n = n `shiftR` 3
 
+-- |Returns the piece occupying a given square on a board, if any.
 occupant :: Board -> Square -> Maybe Piece
 occupant b sq = b V.! sq
 
+-- |Reverses a PieceColor.
 reverseColor :: PieceColor -> PieceColor
 reverseColor White = Black
 reverseColor _ = White
 
+-- |List of piece types that pawns are allowed to promote to.
 promotablePieces :: [PieceType]
 promotablePieces = [Knight, Bishop, Rook, Queen]
 
--- ** some boards **
-
+-- |The initial pieces of a chess game.
 initialPieces :: Pieces
 initialPieces = [
   Piece Rook White   (readSquare "a1"),
@@ -132,10 +164,12 @@ initialPieces = [
   Piece Bishop Black (readSquare "f8"),
   Piece Knight Black (readSquare "g8"),
   Piece Rook Black   (readSquare "h8")]
-  
+
+-- |Empty list of Pieces.
 emptyPieces :: Pieces
 emptyPieces = []
 
+-- |Sample position, white to move and win.
 mateIn1 :: Pieces
 mateIn1 = [
   Piece Rook White (readSquare "b1"),
@@ -149,6 +183,7 @@ mateIn1 = [
   Piece Pawn Black (readSquare "g7"),
   Piece Pawn Black (readSquare "f7")]
 
+-- |Sicilian Dragon opening.
 sicilianDragon :: Pieces
 sicilianDragon = [
   Piece Pawn White   (readSquare "a2"),

@@ -1,3 +1,7 @@
+{- |
+Moves.hs
+Contains functionality for representing and generating piece moves on a chessboard.
+-}
 module Moves where
 import Data.Maybe
 import Data.List
@@ -6,10 +10,21 @@ import Control.Applicative
 import Board
 import Utils
 
+-- |Cardinal directions which may be combined to represent different chess moves.
 data Direction = N | S | E | W deriving (Eq, Show)
 
+-- |Castling is a special-case move, since it involves moving 2 pieces, the king and the rook.
+-- A castle can either be kingside or queenside.
 data Castle = Kingside | Queenside deriving Eq
-                   
+             
+{- |
+  A Move consists of:
+  - from piece, i.e. the origin piece.
+  - to piece, i.e. the destination piece.
+  - optional captured piece
+  - flag for whether this was an en passant capture (another special-case move).
+  - optional castle type.
+-}
 data Move = Move { 
   fromPiece :: Piece,
   toPiece :: Piece,
@@ -17,42 +32,68 @@ data Move = Move {
   enPassant :: Bool,
   castle :: Maybe Castle }
 
+-- |All directions, useful in list comprehensions below.
 allDirections :: [Direction]
 allDirections = [N, S, E, W]
 
+-- |Rooks may move north, south, east, or west.
 rookDirections :: [[Direction]]
 rookDirections = [ [a] | a <- allDirections ]
 
+-- |Bishops may move northeast, northwest, southeast, or southwest.
 bishopDirections :: [[Direction]]
 bishopDirections =[ [a,b] | a <- [N,S], b <- [E,W] ]
 
+-- |Queens may move like rooks or bishops.
 queenDirections :: [[Direction]]
 queenDirections = rookDirections ++ bishopDirections
 
+-- |Kings may move like queens, but only one square.
 kingDirections :: [[Direction]]
 kingDirections = rookDirections ++ bishopDirections
 
+-- |Knights may move 2 squares in one direction, and 1 square in another direction.
+-- For a knight on the center of the board, there are 8 possible moves.
 knightDirections :: [[Direction]]
 knightDirections = [ [a,b,c] | a <- allDirections, b <- [N,S], c <- [E,W], a == b || a == c]
 
+-- |White pawns can only move north.
 whitePawnDirections :: [[Direction]]
 whitePawnDirections = [[N]]
 
+-- |White pawns can capture northeast or northwest.
 whitePawnCaptureDirections :: [[Direction]]
 whitePawnCaptureDirections = [[N,E], [N,W]]
 
+-- |Black pawns can only move south.
 blackPawnDirections :: [[Direction]]
 blackPawnDirections = [[S]]
 
+-- |Black pawns can capture southeast or southwest.
 blackPawnCaptureDirections :: [[Direction]]
 blackPawnCaptureDirections = [[S,E], [S,W]]
 
+-- |The initial white moves of a chess game.
 initialMoves :: [Move]
 initialMoves = legalMoves (toBoard initialPieces) initialPieces White Nothing []
 
+{- |
+  Given a board, pieces, and piece color, returns all possible Moves.
+  This function returns all moves physically possible on the board.  It does not test move legality, 
+  such as moving pinned pieces, castling through check, previous king moves preventing castling, etc.
+  The returned moves are sorted by piece type, and then square.
+-}
 allMoves :: Board -> Pieces -> PieceColor -> [Move]
 allMoves b p pc = sortBy comparingMove $ concatMap (moves b) (filter (\c -> pc == pieceColor c) p)
 
+{- |
+  Returns all possible _legal_ moves.
+  Like allMoves, this function takes a board, pieces, and piece color.  It also takes an optional 
+  en-passant capture and prohibited castles which is needed for testing move legality.
+  It works by calling allMoves, and then filtering the returned list of Moves to remove illegal moves, 
+  like prohibited castles, moving into check, and en passant legality.
+  The returned moves are sorted by piece type, and then square.
+-}
 legalMoves :: Board -> Pieces -> PieceColor -> Maybe Piece -> [Castle] -> [Move]
 legalMoves b p pc ep prohibitedCastles = filter (liftA3 (&&&) castleAllowed notInCheck enPassantAllowed) $ allMoves b p pc where
   notInCheck (Move _ _ _ _ (Just cas)) = case (pc, cas) of
