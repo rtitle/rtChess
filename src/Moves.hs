@@ -2,7 +2,19 @@
 Moves.hs
 Contains functionality for representing and generating piece moves on a chessboard.
 -}
-module Moves where
+module Moves (
+Direction(..),
+Castle(..),
+Move(..),
+allMoves,
+legalMoves,
+initialMoves,
+updatePieces,
+updateBoard,
+showMove,
+readMove
+) where
+
 import Data.Maybe
 import Data.List
 import qualified Data.Vector as V
@@ -21,7 +33,7 @@ data Castle = Kingside | Queenside deriving Eq
   A Move consists of:
   - from piece, i.e. the origin piece.
   - to piece, i.e. the destination piece.
-  - optional captured piece
+  - optional captured piece.
   - flag for whether this was an en passant capture (another special-case move).
   - optional castle type.
 -}
@@ -80,7 +92,7 @@ initialMoves = legalMoves (toBoard initialPieces) initialPieces White Nothing []
 {- |
   Given a board, pieces, and piece color, returns all possible Moves.
   This function returns all moves physically possible on the board.  It does not test move legality, 
-  such as moving pinned pieces, castling through check, previous king moves preventing castling, etc.
+  such as moving pinned pieces, castling through check, prohibited castling, etc.
   The returned moves are sorted by piece type, and then square.
 -}
 allMoves :: Board -> Pieces -> PieceColor -> [Move]
@@ -89,7 +101,7 @@ allMoves b p pc = sortBy comparingMove $ concatMap (moves b) (filter (\c -> pc =
 {- |
   Returns all possible _legal_ moves.
   Like allMoves, this function takes a board, pieces, and piece color.  It also takes an optional 
-  en-passant capture and prohibited castles which is needed for testing move legality.
+  en-passant capture and prohibited castles which are needed for testing move legality.
   It works by calling allMoves, and then filtering the returned list of Moves to remove illegal moves, 
   like prohibited castles, moving into check, and en passant legality.
   The returned moves are sorted by piece type, and then square.
@@ -105,17 +117,20 @@ legalMoves b p pc ep prohibitedCastles = filter (liftA3 (&&&) castleAllowed notI
   squaresNotAttacked = all (\s -> not . isSquareAttacked b p pc $ readSquare s)
   castleAllowed mv = all (\c -> not $ elem c prohibitedCastles) $ maybeToList (castle mv)
   enPassantAllowed = liftA2 (||) (not . enPassant) (\m -> ep == capturedPiece m)
-  
+
+-- |Given Pieces and a Move, makes the move and returns the updated Pieces.
 updatePieces :: Pieces -> Move -> Pieces
 updatePieces ps (Move p1 _ _ _ (Just cas)) = foldl updatePieces ps (concatCastleMoves (pieceColor p1) cas)
 updatePieces ps (Move p1 p2 Nothing _ _) = p2 : filter (/=p1) ps
 updatePieces ps (Move p1 p2 (Just c) _ _) = p2 : filter (liftA2 (&&) (/=p1) (/=c)) ps
 
+-- |Given a Board and a Move, makes the move and returns the updated Board.
 updateBoard :: Board -> Move -> Board
 updateBoard b (Move p1 _ _ _ (Just cas)) = foldl updateBoard b (concatCastleMoves (pieceColor p1) cas)
 updateBoard b (Move p1 p2 Nothing _ _) = b V.// [(square p1, Nothing), (square p2, Just p2)]
 updateBoard b (Move p1 p2 (Just c) _ _) = b V.// [(square p1, Nothing), (square p2, Just p2), (square c, Just p2)]
 
+-- |Internal move generator function.  Given a board and a piece, returns a list of possible moves.
 moves :: Board -> Piece -> [Move]
 moves b p@(Piece pt pc sq) 
   -- rook
@@ -200,10 +215,20 @@ moves b p@(Piece pt pc sq)
         genRepeatingMoves = genMoves b sq maxBound
         genSingleMove = genMoves b sq 1
         genDoubleMove = genMoves b sq 2
-        
+
+-- |Internal move generator function.     
 genMoves :: Board -> Square -> Int -> (Square -> Bool) -> [Direction] -> [Square]
 genMoves b sq n f d = takeWhile (canMove b d f sq). take n . drop 1 . iterate (+offsets d) $ sq
 
+-- |Internal move generator function.
+canMove :: Board -> [Direction] -> (Square -> Bool) -> Square -> Square -> Bool
+canMove b d f initSq curSq = 
+  onBoards initSq curSq d &&
+    (prevSq == initSq || occupant b prevSq == Nothing) &&
+    f curSq
+  where prevSq = curSq - offsets d
+
+-- |Given a Board and PieceColor, returns possible castles.
 castles :: Board -> PieceColor -> [Castle]
 castles b t = filter f [Kingside, Queenside] where
   f c = case (c,t) of
@@ -215,6 +240,7 @@ castles b t = filter f [Kingside, Queenside] where
   king sq = let s = readSquare sq in occupant b s == Just (Piece King t s)
   emptySq sq = let s = readSquare sq in occupant b s == Nothing
   
+-- |Concats a Castle into separate King and Rook moves.
 concatCastleMoves :: PieceColor -> Castle -> [Move]
 concatCastleMoves pc c = [castlingKing pc c, castlingRook pc c] where
   castlingKing White Kingside = Move (Piece King White $ readSquare "e1") (Piece King White $ readSquare "g1") Nothing False Nothing
@@ -226,15 +252,18 @@ concatCastleMoves pc c = [castlingKing pc c, castlingRook pc c] where
   castlingRook White Queenside = Move (Piece Rook White $ readSquare "a1") (Piece Rook White $ readSquare "d1") Nothing False Nothing
   castlingRook Black Queenside = Move (Piece Rook Black $ readSquare "a8") (Piece Rook Black $ readSquare "d8") Nothing False Nothing
 
+-- |Maps a Direction to a Board offset.
 offset :: Direction -> Int
 offset N = 8
 offset E = 1
 offset S = -8
 offset W = -1
 
+-- |Maps a list of Directions to a Board offset.
 offsets :: [Direction] -> Int
 offsets = foldl (+) 0 . map offset
 
+-- |Takes an initial square, current square, and direction, and tests whether the square is on the board.
 onBoard :: Square -> Square -> Direction -> Bool
 onBoard initSq curSq d = 
   let curRank = rank curSq
@@ -246,29 +275,30 @@ onBoard initSq curSq d =
     E -> curFile < 8 && curFile > initFile
     S -> curRank >= 0 && curRank < initRank
     W -> curFile >= 0 && curFile < initFile
-                         
+
+-- |Given an initial square, current square, and list of directions, tests whether the square is on the board.
 onBoards :: Square -> Square -> [Direction] -> Bool
 onBoards initSq curSq = foldl (&&) True . map (onBoard initSq curSq)
-                
+
+-- |Given a Board, PieceColor, and Square, tests whether a piece of the given color 
+--  moving to the given square would be a capture.
 isCapture :: Board -> PieceColor -> Square -> Bool
 isCapture b pc s = Just pc == fmap (reverseColor . pieceColor) (occupant b s)
 
+-- |Tests whether a square is empty.
 isEmptySquare :: Board -> Square -> Bool
 isEmptySquare b s = occupant b s == Nothing
-  
+
+-- |Tests whether the King of the given color is in check.
 isKingInCheck :: Board -> Pieces -> PieceColor -> Bool
 isKingInCheck b ps pc = Just King `elem` map (fmap pieceType . capturedPiece) (allMoves b ps $ reverseColor pc)
 
+-- |Tests whether a piece of the given color on the given square is attacked.
 isSquareAttacked :: Board -> Pieces -> PieceColor -> Square -> Bool
 isSquareAttacked b ps pc sq = sq `elem` map (square . toPiece) (legalMoves b ps (reverseColor pc) Nothing [Kingside, Queenside])
 
-canMove :: Board -> [Direction] -> (Square -> Bool) -> Square -> Square -> Bool
-canMove b d f initSq curSq = 
-  onBoards initSq curSq d &&
-    (prevSq == initSq || occupant b prevSq == Nothing) &&
-    f curSq
-  where prevSq = curSq - offsets d
-  
+-- |Shows a Move in chess algebraic notation.
+--  NYI: I would like to implement displaying check (+) and checkmate (++) notation.
 showMove :: Board -> Pieces -> PieceColor -> Move -> String
 showMove b ps t m@(Move from to cap ep cas)
   -- kingside castle (0-0)
@@ -310,31 +340,57 @@ showMove b ps t m@(Move from to cap ep cas)
       (square . toPiece $ m) == (square . toPiece $ m') &&
       (square . fromPiece $ m) /= (square $ fromPiece $ m')
     rankOrFile = disambiguate . map fromPiece $ filter ambiguous (allMoves b ps t)
-               
+
+-- |Reads a Move in algebraic notation.
 readMove :: Board -> Pieces -> PieceColor -> Maybe Piece -> [Castle] -> String -> Maybe Move
 readMove b ps t ep prohibitedCastles s = 
   let (toSq, pt, fromFileOrRank, cas) = case s of 
-       "0-0" -> (castleKingSq, Just King, Nothing, Just Kingside)
-       "0-0-0" -> (castleKingSq, Just King, Nothing, Just Queenside)
-       r:f:[] -> (readSquare (r:[f]), Just Pawn, Nothing, Nothing)
-       p:r:f:[] -> (readSquare (r:[f]), readPieceType p, Nothing, Nothing)
-       p:'x':r:f:[] -> case readPieceType p of
-                         Just ptype -> (readSquare (r:[f]), Just ptype, Nothing, Nothing)
-                         Nothing -> (readSquare (r:[f]), Just Pawn, Just p, Nothing)
+       -- kingside castle (0-0)
+       "0-0"           -> (castleKingSq, Just King, Nothing, Just Kingside)
+       
+       -- queenside castle (0-0-0)
+       "0-0-0"         -> (castleKingSq, Just King, Nothing, Just Queenside)
+       
+       -- pawn move (e4)
+       r:f:[]          -> (readSquare (r:[f]), Just Pawn, Nothing, Nothing)
+       
+       -- piece move (Nf3)
+       p:r:f:[]        -> (readSquare (r:[f]), readPieceType p, Nothing, Nothing)
+       
+       -- piece capture (Qxd5) or pawn capture (exf4)
+       p:'x':r:f:[]    -> 
+         case readPieceType p of
+           Just ptype -> (readSquare (r:[f]), Just ptype, Nothing, Nothing)
+           Nothing    -> (readSquare (r:[f]), Just Pawn, Just p, Nothing)
+           
+       -- pawn promotion (h8=Q)
        r:f:'=':prom:[] -> (readSquare (r:[f]), readPieceType prom, Nothing, Nothing)
+       
+       -- pawn capture promotion (axb1=N)
        p:'x':r:f:'=':prom:[] -> (readSquare (r:[f]), readPieceType prom, Just p, Nothing)
-       p:rf:r:f:[] -> (readSquare (r:[f]), readPieceType p, Just rf, Nothing)
+       
+       -- ambiguous piece move (Nbd2)
+       p:rf:r:f:[]     -> (readSquare (r:[f]), readPieceType p, Just rf, Nothing)
+       
+       -- ambiguous piece move capture (R3xh3)
        p:rf:'x':r:f:[] -> (readSquare (r:[f]), readPieceType p, Just rf, Nothing)
+       
+       -- default case
        _ -> (readSquare "a1", Nothing, Nothing, Nothing)
+       
+      -- filter function
       fm m = cas == (castle m) &&
              ((not . enPassant $ m) && toSq == (square . toPiece $ m) || (enPassant m && fmap square (capturedPiece m) == Just toSq)) &&
              pt == Just (pieceType . toPiece $ m) &&
              (fromFileOrRank == Nothing || any (\x -> (Just x) == fromFileOrRank) (showSquare . square . fromPiece $ m))
+  
+  -- apply filter function on legal moves
   in headMaybe $ filter fm (legalMoves b ps t ep prohibitedCastles)
   where headMaybe (x:[]) = Just x
         headMaybe _ = Nothing
         castleKingSq = readSquare $ if t == White then "e1" else "e8"
         
+-- |Compares 2 Moves by piece type, then square.
 comparingMove :: Move -> Move -> Ordering
 comparingMove p1 p2 
   | comparePieceType == EQ = comparePieceSquare
