@@ -37,16 +37,21 @@ spec = do
       allMovesHelper sicilianDragon Black `shouldSatisfy` (\m -> all (`notElem` m) ["Ke8", "Rr8", "d1", "Bb8"])
       
     it "returns capture moves" $ do
+      allMovesHelper sicilianDragon White `shouldSatisfy` (\m -> all (`elem` m) ["Nxc6", "Bxf7"])
+      allMovesHelper sicilianDragon White `shouldSatisfy` (\m -> all (`notElem` m) ["Bxh7", "Qxd6", "exd6"])
+      allMovesHelper sicilianDragon Black `shouldSatisfy` (\m -> all (`elem` m) ["Nxd4", "Nxe4"])
+      allMovesHelper sicilianDragon Black `shouldSatisfy` (\m -> all (`notElem` m) ["Nxe5", "Qxe4", "Bxc3"])
+      
+    it "allows moving the king into check" $ do
       pending
-    it "allows leaving the king in check" $ do
-      pending
+      
     it "returns castle moves" $ do
-      pending
+      allMovesHelper sicilianDragon White `shouldSatisfy` (\m -> all (`elem` m) ["0-0", "0-0-0"])
+      
     it "allows castling through check" $ do
       pending
+      
     it "returns en passant moves" $ do
-      pending
-    it "returns moves in sorted order" $ do
       pending
       
   describe "legalMoves" $ do
@@ -65,8 +70,6 @@ spec = do
     it "returns en passant moves" $ do
       pending
     it "does not return illegal en passant moves" $ do
-      pending
-    it "returns moves in sorted order" $ do
       pending
       
   describe "initialMoves" $ do
