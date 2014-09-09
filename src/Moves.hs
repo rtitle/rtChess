@@ -27,7 +27,7 @@ data Direction = N | S | E | W deriving (Eq, Show)
 
 -- |Castling is a special-case move, since it involves moving 2 pieces, the king and the rook.
 -- A castle can either be kingside or queenside.
-data Castle = Kingside | Queenside deriving Eq
+data Castle = Kingside | Queenside deriving (Eq, Show)
              
 {- |
   A Move consists of:
@@ -42,7 +42,13 @@ data Move = Move {
   toPiece :: Piece,
   capturedPiece :: Maybe Piece,
   enPassant :: Bool,
-  castle :: Maybe Castle }
+  castle :: Maybe Castle } deriving Eq
+  
+-- |Show instance for Moves.
+--  This is a convenience; the showMove function should generally be used instead, since
+--  that takes a board context and guarantees the correct move notation.
+instance Show Move where
+  show m = showMove (toBoard emptyPieces) emptyPieces (pieceColor . fromPiece $ m) m
 
 -- |All directions, useful in list comprehensions below.
 allDirections :: [Direction]
