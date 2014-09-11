@@ -8,6 +8,8 @@ spec
 ) where
 
 import Test.Hspec
+import Control.Applicative
+import Utils
 import Board
 import Moves
 
@@ -25,34 +27,42 @@ expectedBlackInitialMoves = ["Nc6", "Na6", "Nh6", "Nf6"] ++ [a:b:[] | a <- ['a'.
 allMovesHelper :: Pieces -> PieceColor -> [String]
 allMovesHelper p c = let b = toBoard p in map (showMove b p c) (allMoves b p c)
 
+shouldContainAll :: (Show a, Eq a) => [a] -> [a] -> Expectation
+lhs `shouldContainAll` rhs = lhs `shouldSatisfy` (\x -> all (`elem` x) rhs)
+
+shouldNotContainAny :: (Show a, Eq a) => [a] -> [a] -> Expectation
+lhs `shouldNotContainAny` rhs = lhs `shouldSatisfy` (\x -> all (`notElem` x) rhs)
+
 spec :: Spec
 spec = do
   describe "allMoves" $ do
     it "returns all valid moves for a position" $ do
       allMovesHelper initialPieces White `shouldBe` expectedWhiteInitialMoves
       allMovesHelper initialPieces Black `shouldBe` expectedBlackInitialMoves
-      allMovesHelper sicilianDragon White `shouldSatisfy` (\m -> all (`elem` m) ["Ke2", "Kf1", "Kd1", "Qd1", "Qf2", "Rg1", "Rf1", "Bf4", "Bh6", "Bb3", "Nd5", "Na4", "Nb3", "a3", "h4", "e5"])
-      allMovesHelper sicilianDragon White `shouldSatisfy` (\m -> all (`notElem` m) ["Ke8", "Rr8", "d1", "Bb8"])
-      allMovesHelper sicilianDragon Black `shouldSatisfy` (\m -> all (`elem` m) ["Kh8", "Qc7", "Rb8", "Bd7", "Bh3", "Ne5", "Nd5", "d5", "e5", "h6"])
-      allMovesHelper sicilianDragon Black `shouldSatisfy` (\m -> all (`notElem` m) ["Ke8", "Rr8", "d1", "Bb8"])
+      allMovesHelper sicilianDragon White `shouldContainAll` ["Ke2", "Kf1", "Kd1", "Qd1", "Qf2", "Rg1", "Rf1", "Bf4", "Bh6", "Bb3", "Nd5", "Na4", "Nb3", "a3", "h4", "e5"]
+      allMovesHelper sicilianDragon White `shouldNotContainAny` ["Ke8", "Rr8", "d1", "Bb8"]
+      allMovesHelper sicilianDragon Black `shouldContainAll` ["Kh8", "Qc7", "Rb8", "Bd7", "Bh3", "Ne5", "Nd5", "d5", "e5", "h6"]
+      allMovesHelper sicilianDragon Black `shouldNotContainAny` ["Ke8", "Rr8", "d1", "Bb8"]
       
     it "returns capture moves" $ do
-      allMovesHelper sicilianDragon White `shouldSatisfy` (\m -> all (`elem` m) ["Nxc6", "Bxf7"])
-      allMovesHelper sicilianDragon White `shouldSatisfy` (\m -> all (`notElem` m) ["Bxh7", "Qxd6", "exd6"])
-      allMovesHelper sicilianDragon Black `shouldSatisfy` (\m -> all (`elem` m) ["Nxd4", "Nxe4"])
-      allMovesHelper sicilianDragon Black `shouldSatisfy` (\m -> all (`notElem` m) ["Nxe5", "Qxe4", "Bxc3"])
+      allMovesHelper sicilianDragon White `shouldContainAll` ["Nxc6", "Bxf7"]
+      allMovesHelper sicilianDragon White `shouldNotContainAny` ["Bxh7", "Qxd6", "exd6"]
+      allMovesHelper sicilianDragon Black `shouldContainAll` ["Nxd4", "Nxe4"]
+      allMovesHelper sicilianDragon Black `shouldNotContainAny`  ["Nxe5", "Qxe4", "Bxc3"]
       
     it "allows moving the king into check" $ do
-      pending
+      allMovesHelper stalemate Black `shouldContainAll` ["Bc7", "Bd6", "Be5", "Kb7", "Ka7"]
       
     it "returns castle moves" $ do
-      allMovesHelper sicilianDragon White `shouldSatisfy` (\m -> all (`elem` m) ["0-0", "0-0-0"])
+      allMovesHelper sicilianDragon White `shouldContainAll` ["0-0", "0-0-0"]
       
     it "allows castling through check" $ do
-      pending
+      let modifiedDragon = filter (liftA3 (&&&) (/= Piece Queen White (readSquare "d2")) (/= Piece Knight White (readSquare "d4")) (/= Piece Pawn Black (readSquare "d6"))) sicilianDragon
+      allMovesHelper modifiedDragon White `shouldContainAll` ["0-0-0"]
       
     it "returns en passant moves" $ do
-      pending
+      let modifiedInitialPieces = initialPieces ++ [Piece Pawn White (readSquare "d5"), Piece Pawn Black (readSquare "e5")]
+      allMovesHelper modifiedInitialPieces White `shouldContainAll` ["dxe5 e.p."]
       
   describe "legalMoves" $ do
     it "returns all valid moves for a position" $ do

@@ -216,3 +216,11 @@ sicilianDragon = [
   Piece Rook Black   (readSquare "f8"),
   Piece Queen Black  (readSquare "d8"),
   Piece King Black   (readSquare "g8")]
+  
+-- |A stalemate.
+stalemate :: Pieces
+stalemate = [
+  Piece King Black   (readSquare "a8"),
+  Piece Bishop Black (readSquare "b8"),
+  Piece Rook White   (readSquare "h8"),
+  Piece King White   (readSquare "b6")]
