@@ -27,6 +27,9 @@ expectedBlackInitialMoves = ["Nc6", "Na6", "Nh6", "Nf6"] ++ [a:b:[] | a <- ['a'.
 allMovesHelper :: Pieces -> PieceColor -> [String]
 allMovesHelper p c = let b = toBoard p in map (showMove b p c) (allMoves b p c)
 
+legalMovesHelper :: Pieces -> PieceColor -> Maybe Piece -> [Castle] -> [String]
+legalMovesHelper p c ep cas = let b = toBoard p in map (showMove b p c) (legalMoves b p c ep cas)
+
 shouldContainAll :: (Show a, Eq a) => [a] -> [a] -> Expectation
 lhs `shouldContainAll` rhs = lhs `shouldSatisfy` (\x -> all (`elem` x) rhs)
 
@@ -61,30 +64,56 @@ spec = do
       allMovesHelper modifiedDragon White `shouldContainAll` ["0-0-0"]
       
     it "returns en passant moves" $ do
-      let modifiedInitialPieces = initialPieces ++ [Piece Pawn White (readSquare "d5"), Piece Pawn Black (readSquare "e5")]
+      let modifiedInitialPieces = initialPieces ++ [Piece Pawn White $ readSquare "d5", Piece Pawn Black $ readSquare "e5"]
       allMovesHelper modifiedInitialPieces White `shouldContainAll` ["dxe5 e.p."]
       
   describe "legalMoves" $ do
     it "returns all valid moves for a position" $ do
-      pending
+      legalMovesHelper initialPieces White Nothing [] `shouldBe` expectedWhiteInitialMoves
+      legalMovesHelper initialPieces Black Nothing [] `shouldBe` expectedBlackInitialMoves
+      legalMovesHelper sicilianDragon White Nothing [] `shouldContainAll` ["Ke2", "Kf1", "Kd1", "Qd1", "Qf2", "Rg1", "Rf1", "Bf4", "Bh6", "Bb3", "Nd5", "Na4", "Nb3", "a3", "h4", "e5"]
+      legalMovesHelper sicilianDragon White Nothing [] `shouldNotContainAny` ["Ke8", "Rr8", "d1", "Bb8"]
+      legalMovesHelper sicilianDragon Black Nothing [] `shouldContainAll` ["Kh8", "Qc7", "Rb8", "Bd7", "Bh3", "Ne5", "Nd5", "d5", "e5", "h6"]
+      legalMovesHelper sicilianDragon Black Nothing [] `shouldNotContainAny` ["Ke8", "Rr8", "d1", "Bb8"]
+      
     it "returns capture moves" $ do
-      pending
+      legalMovesHelper sicilianDragon White Nothing [] `shouldContainAll` ["Nxc6", "Bxf7"]
+      legalMovesHelper sicilianDragon White Nothing [] `shouldNotContainAny` ["Bxh7", "Qxd6", "exd6"]
+      legalMovesHelper sicilianDragon Black Nothing [] `shouldContainAll` ["Nxd4", "Nxe4"]
+      legalMovesHelper sicilianDragon Black Nothing [] `shouldNotContainAny`  ["Nxe5", "Qxe4", "Bxc3"]
+      
     it "does not allow leaving the king in check" $ do
-      pending
+      legalMovesHelper stalemate Black Nothing [] `shouldBe` []
+      
     it "returns castle moves" $ do
-      pending
+      legalMovesHelper sicilianDragon White Nothing [] `shouldContainAll` ["0-0", "0-0-0"]
+      
     it "does not allow castling through check" $ do
-      pending
+      let modifiedDragon = filter (liftA3 (&&&) (/= Piece Queen White (readSquare "d2")) (/= Piece Knight White (readSquare "d4")) (/= Piece Pawn Black (readSquare "d6"))) sicilianDragon
+      legalMovesHelper modifiedDragon White Nothing [] `shouldNotContainAny` ["0-0-0"]
+      
     it "does not return prohibited castles" $ do
-      pending
+      legalMovesHelper sicilianDragon White Nothing [Queenside] `shouldContainAll` ["0-0"]
+      legalMovesHelper sicilianDragon White Nothing [Queenside] `shouldNotContainAny` ["0-0-0"]
+      legalMovesHelper sicilianDragon White Nothing [Kingside] `shouldNotContainAny` ["0-0"]
+      legalMovesHelper sicilianDragon White Nothing [Kingside] `shouldContainAll` ["0-0-0"]
+      legalMovesHelper sicilianDragon White Nothing [Queenside, Kingside] `shouldNotContainAny` ["0-0", "0-0-0"]
+      
     it "returns en passant moves" $ do
-      pending
+      let epPawn = Piece Pawn Black $ readSquare "e5"
+      let modifiedInitialPieces = initialPieces ++ [Piece Pawn White $ readSquare "d5", epPawn]
+      legalMovesHelper modifiedInitialPieces White (Just epPawn) [] `shouldContainAll` ["dxe5 e.p."]
+      
     it "does not return illegal en passant moves" $ do
-      pending
+      let epPawn = Piece Pawn Black $ readSquare "e5"
+      let nonEpPawn = Piece Pawn Black $ readSquare "f7"
+      let modifiedInitialPieces = initialPieces ++ [Piece Pawn White $ readSquare "d5", epPawn]
+      legalMovesHelper modifiedInitialPieces White (Just nonEpPawn) [] `shouldNotContainAny` ["dxe5 e.p."]
+      legalMovesHelper modifiedInitialPieces White Nothing [] `shouldNotContainAny` ["dxe5 e.p."]
       
   describe "initialMoves" $ do
     it "returns the legal moves from the initial position" $ do
-      pending
+      map (showMove (toBoard initialPieces) initialPieces White) initialMoves `shouldBe` expectedWhiteInitialMoves
   
   describe "updatePieces" $ do
     it "makes a move and returns the updated pieces" $ do
