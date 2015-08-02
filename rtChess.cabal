@@ -13,7 +13,8 @@ library
   exposed-modules: Board,
                    Moves,
                    Game,
-                   Utils
+                   Utils,
+                   Eval
                    
 executable rtChess
   hs-source-dirs:  src-commandline

@@ -68,10 +68,11 @@ run g lg = do
   when (l == "exit") $ do
     putStrLn "Thanks for playing!"
     exitSuccess
-  let input = splitOn " " l
-  let (res', g', lg') = runRWS (playGame input) () g
+  --let input = splitOn " " l
+  let input = l
+  let (res', g'@(Game ps b t _ _), lg') = runRWS (playMove input) () g
   case res' of
-    Right _ -> putStrLn $ "Made move(s): " ++ l
+    Right m -> putStrLn $ "Made move: " ++ l ++ "\nComputer made move: " ++ (showMove b ps t m)
     Left s -> putStrLn s
   run g' (lg++lg')
 
