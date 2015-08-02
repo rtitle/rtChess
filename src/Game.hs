@@ -112,15 +112,23 @@ playMove s = do
     
 genGameTree :: Int -> Move -> Game -> GameTree
 genGameTree 0 m g = GameTree m g []
-genGameTree depth m g@(Game ps b t _ _) = GameTree m g (map (\(m',g') -> genGameTree (depth-1) m' g') nextGames)
-  where nextGames = map (\m' -> (m', (makeMove g m'))) (allMoves b ps t)
+genGameTree depth m g@(Game ps b t _ _)
+  | finalMove g = GameTree m g []
+  | otherwise = GameTree m g (map (\(m',g') -> genGameTree (depth-1) m' g') zippedMoves)
+  where 
+    zippedMoves = zipWith (,) nextMoves (map (makeMove g) nextMoves)
+    nextMoves = allMoves b ps t
   
 negamax :: GameTree -> Int
-negamax (GameTree _ g []) = evalBoard (pieces g)
+negamax (GameTree _ (Game ps _ _ _ _) []) = evalBoard ps
 negamax (GameTree _ (Game _ _ White _ _) xs) = minimum (map (negate . negamax) xs)
 negamax (GameTree _ (Game _ _ Black _ _) xs) = maximum (map (negate . negamax) xs)
   
 findBestMove :: Move -> Game -> Move
 findBestMove m g = let (GameTree _ _ xs) = genGameTree 4 m g in
   lastMove $ maximumBy (comparing negamax) xs
+  
+finalMove :: Game -> Bool
+finalMove (Game ps _ _ _ _) = e > threshold || e < -threshold
+  where e = evalBoard ps
 
