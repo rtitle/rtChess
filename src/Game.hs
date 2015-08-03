@@ -3,10 +3,9 @@ Game.hs
 Contains functionality for representing the state of a chess game.
 -}
 module Game(
-Game(..),
+Position(..),
 getProhibitedCastles,
-newGame,
-playGame,
+initialPosition,
 playMove
 ) where
 
@@ -19,47 +18,35 @@ import Moves
 import Utils
 import Eval
 
-{- |
-  A Game consists of:
-  - the Pieces
-  - the Board
-  - whose turn it is (the PieceColor)
-  - list of prohibited castles (initially empty)
-  - optional piece eligible for en passant capture
--}
-data Game = Game { 
+data Position = Position { 
   pieces :: Pieces,
   board :: Board,
   turn :: PieceColor,
+  lastMove :: Maybe Move,
   prohibitedCastles :: [(PieceColor, Castle)],
   enPassant :: Maybe Piece }
 
-data GameTree = GameTree {
-  lastMove :: Move,
-  game :: Game,
-  gameTree :: [GameTree]
+data PositionTree = PositionTree {
+  position :: Position,
+  positionTree :: [PositionTree]
 }
 
--- |Use a Reader-Writer-State monad to represent the game.
---  Reader is not currently used; Writer is a list of moves as Strings; State is the Game data type. 
-type MonadStack = RWS () [String] Game
+type Game = RWS () [String] Position
 
--- |Gets the list of prohibited castles from a Game.
-getProhibitedCastles :: Game -> [Castle]
-getProhibitedCastles g = map snd $ filter (\c -> turn g == fst c) (prohibitedCastles g)
+getProhibitedCastles :: Position -> [Castle]
+getProhibitedCastles p = map snd $ filter (\c -> turn p == fst c) (prohibitedCastles p)
 
--- |Makes a Move and updates the MonadStack.
-makeMove' :: Move -> MonadStack ()
+makeMove' :: Move -> Game ()
 makeMove' move = do
-  -- get the current game from the State monad.
-  g@(Game ps b t _ _) <- get
+  -- get the current position from the State monad.
+  p@(Position ps b t _ _ _) <- get
   -- log the move to the Writer monad.
   tell [showMove b ps t move]
-  -- put the new game to the State monad.
-  put $ makeMove g move
+  -- put the new position to the State monad.
+  put $ makeMove p move
     
-makeMove :: Game -> Move -> Game
-makeMove (Game ps b t prohibCas _) move = Game (updatePieces ps move) (updateBoard b move) (reverseColor t) (updateProhibitedCastles ++ prohibCas) getEp
+makeMove :: Position -> Move -> Position
+makeMove (Position ps b t _ prohibCas _) move = Position (updatePieces ps move) (updateBoard b move) (reverseColor t) (Just move) (updateProhibitedCastles ++ prohibCas) getEp
   where
     -- if a King or a Rook moves from their original squares, update list of prohibited castles.
     updateProhibitedCastles 
@@ -80,55 +67,43 @@ makeMove (Game ps b t prohibCas _) move = Game (updatePieces ps move) (updateBoa
     isFromRank r m = (rank . square . fromPiece $ m) == r
     isToRank r m = (rank . square . toPiece $ m) == r
 
--- |Starts a new game.
-newGame :: Game
-newGame = Game initialPieces (toBoard initialPieces) White [] Nothing
-
--- |Applies the given list of moves to a game.
---  If an invalid move is encountered, the function returns and no subsequent moves are made.
-playGame :: [String] -> MonadStack (Either String ())
-playGame [] = return $ Right ()
-playGame (x:xs) = do
-  g@(Game ps b t _ ep) <- get
-  let maybeM = readMove b ps t ep (getProhibitedCastles g) x
-  case maybeM of
-    Just m -> do
-      _ <- makeMove' m
-      playGame xs
-    _ -> return . Left $ "Invalid move: " ++ x
+initialPosition :: Position
+initialPosition = Position initialPieces (toBoard initialPieces) White Nothing [] Nothing
     
-playMove :: String -> MonadStack (Either String Move)
+playMove :: String -> Game (Either String Move)
 playMove s = do
-  g@(Game ps b t _ ep) <- get
-  let maybeM = readMove b ps t ep (getProhibitedCastles g) s
+  p@(Position ps b t _ _ ep) <- get
+  let maybeM = readMove b ps t ep (getProhibitedCastles p) s
   case maybeM of
     Just m -> do
       _ <- makeMove' m
-      g' <- get
-      let computerMove = findBestMove m g'
-      _ <- makeMove' computerMove
-      return . Right $ computerMove
-    _ -> return . Left $ "Invalid move: " ++ s
+      p' <- get
+      let maybeComputerM = findBestMove p'
+      case maybeComputerM of
+        Just cm -> do
+          _ <- makeMove' cm
+          return . Right $ cm
+        Nothing -> return . Left $ "No moves found :("
+    Nothing -> return . Left $ "Invalid move: " ++ s
     
-genGameTree :: Int -> Move -> Game -> GameTree
-genGameTree 0 m g = GameTree m g []
-genGameTree depth m g@(Game ps b t _ _)
-  | finalMove g = GameTree m g []
-  | otherwise = GameTree m g (map (\(m',g') -> genGameTree (depth-1) m' g') zippedMoves)
+genGameTree :: Int -> Position -> PositionTree
+genGameTree 0 p = PositionTree p []
+genGameTree depth p@(Position ps b t _ _ _)
+  | finalMove p = PositionTree p []
+  | otherwise = PositionTree p (map (genGameTree (depth-1)) nextMoves)
   where 
-    zippedMoves = zipWith (,) nextMoves (map (makeMove g) nextMoves)
-    nextMoves = allMoves b ps t
+    nextMoves = map (makeMove p) (allMoves b ps t)
   
-negamax :: GameTree -> Int
-negamax (GameTree _ (Game ps _ _ _ _) []) = evalBoard ps
-negamax (GameTree _ (Game _ _ White _ _) xs) = minimum (map (negate . negamax) xs)
-negamax (GameTree _ (Game _ _ Black _ _) xs) = maximum (map (negate . negamax) xs)
+negamax :: PositionTree -> Int
+negamax (PositionTree (Position ps _ _ _ _ _) []) = evalBoard ps
+negamax (PositionTree (Position _ _ White _ _ _) xs) = minimum (map (negate . negamax) xs)
+negamax (PositionTree (Position _ _ Black _ _ _) xs) = maximum (map (negate . negamax) xs)
   
-findBestMove :: Move -> Game -> Move
-findBestMove m g = let (GameTree _ _ xs) = genGameTree 4 m g in
-  lastMove $ maximumBy (comparing negamax) xs
+findBestMove :: Position -> (Maybe Move)
+findBestMove p = let (PositionTree _ xs) = genGameTree 4 p in
+  lastMove . position $ maximumBy (comparing negamax) xs
   
-finalMove :: Game -> Bool
-finalMove (Game ps _ _ _ _) = e > threshold || e < -threshold
+finalMove :: Position -> Bool
+finalMove (Position ps _ _ _ _ _) = e > threshold || e < -threshold
   where e = evalBoard ps
 
