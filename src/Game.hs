@@ -17,6 +17,7 @@ import Board
 import Moves
 import Utils
 import Eval
+import MoveOrdering
 
 data Position = Position { 
   pieces :: Pieces,
@@ -92,7 +93,7 @@ genGameTree depth p@(Position ps b t _ _ ep)
   | finalMove p = PositionTree p []
   | otherwise = PositionTree p (map (genGameTree (depth-1)) nextMoves)
   where 
-    nextMoves = map (makeMove p) (legalMoves b ps t ep (getProhibitedCastles p))
+    nextMoves = map (makeMove p) (sortBy (comparingMove b ps) (legalMoves b ps t ep (getProhibitedCastles p)))
 
 negamax :: Int -> Int -> PositionTree -> Int
 negamax _ _ (PositionTree (Position ps _ _ _ _ _) []) = evalBoard ps

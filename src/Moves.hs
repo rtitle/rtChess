@@ -10,6 +10,7 @@ allMoves,
 legalMoves,
 initialMoves,
 isKingInCheck,
+isCapture,
 updatePieces,
 updateBoard,
 showMove,
@@ -399,12 +400,3 @@ readMove b ps t ep prohibitedCastles s =
   where headMaybe (x:[]) = Just x
         headMaybe _ = Nothing
         castleKingSq = readSquare $ if t == White then "e1" else "e8"
-        
--- |Compares 2 Moves by piece type, then square.
-comparingMove :: Move -> Move -> Ordering
-comparingMove p1 p2 
-  | comparePieceType == EQ = comparePieceSquare
-  | otherwise = comparePieceType
-  where 
-    comparePieceType = compare (pieceType . fromPiece $ p1) (pieceType . fromPiece $ p2)
-    comparePieceSquare = compare (square . fromPiece $ p1) (square . fromPiece $ p2)

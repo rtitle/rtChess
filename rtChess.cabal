@@ -14,7 +14,8 @@ library
                    Moves,
                    Game,
                    Utils,
-                   Eval
+                   Eval,
+                   MoveOrdering
                    
 executable rtChess
   hs-source-dirs:  src-commandline
