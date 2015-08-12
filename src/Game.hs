@@ -93,15 +93,18 @@ genGameTree depth p@(Position ps b t _ _ _)
   | otherwise = PositionTree p (map (genGameTree (depth-1)) nextMoves)
   where 
     nextMoves = map (makeMove p) (allMoves b ps t)
-  
-negamax :: PositionTree -> Int
-negamax (PositionTree (Position ps _ _ _ _ _) []) = evalBoard ps
-negamax (PositionTree (Position _ _ White _ _ _) xs) = minimum (map (negate . negamax) xs)
-negamax (PositionTree (Position _ _ Black _ _ _) xs) = maximum (map (negate . negamax) xs)
+
+negamax :: Int -> Int -> PositionTree -> Int
+negamax _ _ (PositionTree (Position ps _ _ _ _ _) []) = evalBoard ps
+negamax a b (PositionTree p (x:xs)) = prune a b (negamax (-b) (-a) x) xs
+  where prune a' b' e es
+          | b' < e     = -e
+          | null es   = -max a' e
+          | otherwise = negamax (max a' e) b' (PositionTree p es)
   
 findBestMove :: Position -> (Maybe Move)
 findBestMove p = let (PositionTree _ xs) = genGameTree 4 p in
-  lastMove . position $ maximumBy (comparing negamax) xs
+  lastMove . position $ maximumBy (comparing $ negamax (-infinity) infinity) xs
   
 finalMove :: Position -> Bool
 finalMove (Position ps _ _ _ _ _) = e > threshold || e < -threshold
