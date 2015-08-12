@@ -88,11 +88,11 @@ playMove s = do
     
 genGameTree :: Int -> Position -> PositionTree
 genGameTree 0 p = PositionTree p []
-genGameTree depth p@(Position ps b t _ _ _)
+genGameTree depth p@(Position ps b t _ _ ep)
   | finalMove p = PositionTree p []
   | otherwise = PositionTree p (map (genGameTree (depth-1)) nextMoves)
   where 
-    nextMoves = map (makeMove p) (allMoves b ps t)
+    nextMoves = map (makeMove p) (legalMoves b ps t ep (getProhibitedCastles p))
 
 negamax :: Int -> Int -> PositionTree -> Int
 negamax _ _ (PositionTree (Position ps _ _ _ _ _) []) = evalBoard ps

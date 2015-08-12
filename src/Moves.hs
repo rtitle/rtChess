@@ -17,11 +17,9 @@ readMove
 ) where
 
 import Data.Maybe
-import Data.List
 import qualified Data.Vector as V
 import Control.Applicative
 import Board
-import Utils
 
 -- |Cardinal directions which may be combined to represent different chess moves.
 data Direction = N | S | E | W deriving (Eq, Show)
@@ -100,21 +98,28 @@ initialMoves = legalMoves (toBoard initialPieces) initialPieces White Nothing []
   Given a board, pieces, and piece color, returns all possible Moves.
   This function returns all moves physically possible on the board.  It does not test move legality, 
   such as moving pinned pieces, castling through check, prohibited castling, etc.
-  The returned moves are sorted by piece type, and then square.
 -}
 allMoves :: Board -> Pieces -> PieceColor -> [Move]
-allMoves b p pc = sortBy comparingMove $ concatMap (moves b) (filter (\c -> pc == pieceColor c) p)
+allMoves b p pc = concatMap (moves b) (filter (\c -> pc == pieceColor c) p)
 
 {- |
   Returns all possible _legal_ moves.
   Like allMoves, this function takes a board, pieces, and piece color.  It also takes an optional 
   en-passant capture and prohibited castles which are needed for testing move legality.
   It works by calling allMoves, and then filtering the returned list of Moves to remove illegal moves, 
-  like prohibited castles, moving into check, and en passant legality.
-  The returned moves are sorted by piece type, and then square.
+  like prohibited castles and en passant legality.
 -}
-legalMoves :: Board -> Pieces -> PieceColor -> Maybe Piece -> [Castle] -> [Move]
-legalMoves b p pc ep prohibitedCastles = filter (liftA3 (&&&) castleAllowed notInCheck enPassantAllowed) $ allMoves b p pc where
+legalMoves ::  Board -> Pieces -> PieceColor -> Maybe Piece -> [Castle] -> [Move]
+legalMoves b p pc ep prohibitedCastles = filter (liftA2 (&&) castleAllowed enPassantAllowed) $ allMoves b p pc where
+  castleAllowed mv = all (\c -> not $ elem c prohibitedCastles) $ maybeToList (castle mv)
+  enPassantAllowed = liftA2 (||) (not . enPassant) (\m -> ep == capturedPiece m)
+
+{- |
+  Like legalMoves, but also filters out illegal moves that result in the king being in check,
+  such as moving pinned pieces.
+-}
+legalMovesNotInCheck :: Board -> Pieces -> PieceColor -> Maybe Piece -> [Castle] -> [Move]
+legalMovesNotInCheck b p pc ep prohibitedCastles = filter notInCheck $ legalMoves b p pc ep prohibitedCastles where
   notInCheck (Move _ _ _ _ (Just cas)) = case (pc, cas) of
     (White, Kingside) -> squaresNotAttacked ["e1", "f1", "g1"]
     (Black, Kingside) -> squaresNotAttacked ["e8", "f8", "g8"]
@@ -122,8 +127,6 @@ legalMoves b p pc ep prohibitedCastles = filter (liftA3 (&&&) castleAllowed notI
     (Black, Queenside) -> squaresNotAttacked ["e8", "d8", "c8"]
   notInCheck m = not $ isKingInCheck (updateBoard b m) (updatePieces p m) pc
   squaresNotAttacked = all (\s -> not . isSquareAttacked b p pc $ readSquare s)
-  castleAllowed mv = all (\c -> not $ elem c prohibitedCastles) $ maybeToList (castle mv)
-  enPassantAllowed = liftA2 (||) (not . enPassant) (\m -> ep == capturedPiece m)
 
 -- |Given Pieces and a Move, makes the move and returns the updated Pieces.
 updatePieces :: Pieces -> Move -> Pieces
