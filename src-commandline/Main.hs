@@ -5,11 +5,13 @@ Main program, contains a game player.
 module Main(main) where
 import System.Exit
 import System.IO
+import Data.List
 import Data.List.Split
 import Control.Monad.RWS
 import Board
 import Moves
 import Game
+import MoveOrdering
 
 -- |Returns a printable help String.
 help :: String
@@ -30,7 +32,7 @@ positionMoves p@(Position ps b t _ _ ep) =
   show t ++ 
   ":\n" ++ 
   (show . map (showMove b ps t) $ mvs)
-  where mvs = legalMoves b ps t ep (getProhibitedCastles p)
+  where mvs = sortBy (comparingMove b ps) (legalMovesNotInCheck b ps t ep (getProhibitedCastles p))
   
 -- |Returns a printable String of the game log (current value of the Writer monad in Game.hs).
 showGameLog :: [String] -> String
