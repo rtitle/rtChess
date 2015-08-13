@@ -25,12 +25,15 @@ data Position = Position {
   turn :: PieceColor,
   lastMove :: Maybe Move,
   prohibitedCastles :: [(PieceColor, Castle)],
-  enPassant :: Maybe Piece }
+  enPassant :: Maybe Piece
+}
 
 data PositionTree = PositionTree {
   position :: Position,
   positionTree :: [PositionTree]
 }
+
+data GameState = Playing | Checkmate | Stalemate
 
 type Game = RWS () [String] Position
 
@@ -44,7 +47,13 @@ makeMove' move = do
   -- log the move to the Writer monad.
   tell [showMove b ps t move]
   -- put the new position to the State monad.
-  put $ makeMove p move
+  let p' = makeMove p move
+  put p'
+  -- check for checkmate or stalemate
+  case (checkGameState p') of
+    Checkmate -> tell [winner t]
+    Stalemate -> tell [draw]
+    Playing -> return ()
     
 makeMove :: Position -> Move -> Position
 makeMove (Position ps b t _ prohibCas _) move = Position (updatePieces ps move) (updateBoard b move) (reverseColor t) (Just move) (updateProhibitedCastles ++ prohibCas) getEp
@@ -74,18 +83,41 @@ initialPosition = Position initialPieces (toBoard initialPieces) White Nothing [
 playMove :: String -> Game (Either String Move)
 playMove s = do
   p@(Position ps b t _ _ ep) <- get
-  let maybeM = readMove b ps t ep (getProhibitedCastles p) s
-  case maybeM of
-    Just m -> do
-      _ <- makeMove' m
-      p' <- get
-      let maybeComputerM = findBestMove p'
-      case maybeComputerM of
-        Just cm -> do
-          _ <- makeMove' cm
-          return . Right $ cm
-        Nothing -> return . Left $ "No moves found :("
-    Nothing -> return . Left $ "Invalid move: " ++ s
+  case (checkGameState p) of
+    Playing -> do
+      let maybeM = readMove b ps t ep (getProhibitedCastles p) s
+      case maybeM of
+        Just m -> do
+          _ <- makeMove' m
+          p' <- get
+          case (checkGameState p') of
+            Playing -> do
+              let maybeComputerM = findBestMove p'
+              case maybeComputerM of
+                Just cm -> do
+                  _ <- makeMove' cm
+                  return . Right $ cm
+                Nothing -> return . Left $ "No best moves found :("
+            Checkmate -> do 
+              return . Left $ "Checkmate! Congratulations!"
+            Stalemate -> do
+              return . Left $ "Stalemate. Ha-ha."
+        Nothing -> return . Left $ "Invalid move: " ++ s
+    _ -> return . Left $ "The game is over."  
+
+checkGameState :: Position -> GameState
+checkGameState p@(Position ps b t _ _ ep) = case (legalMovesNotInCheck b ps t ep (getProhibitedCastles p)) of
+  [] -> case (isKingInCheck b ps t) of
+    True -> Checkmate
+    False -> Stalemate
+  _ -> Playing
+    
+winner :: PieceColor -> String
+winner White = "1 - 0"
+winner Black = "0 - 1"
+
+draw :: String
+draw = "1/2 - 1/2"
     
 genGameTree :: Int -> Position -> PositionTree
 genGameTree 0 p = PositionTree p []

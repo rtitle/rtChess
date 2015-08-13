@@ -310,35 +310,34 @@ isSquareAttacked :: Board -> Pieces -> PieceColor -> Square -> Bool
 isSquareAttacked b ps pc sq = sq `elem` map (square . toPiece) (legalMoves b ps (reverseColor pc) Nothing [Kingside, Queenside])
 
 -- |Shows a Move in chess algebraic notation.
---  NYI: I would like to implement displaying check (+) and checkmate (++) notation.
 showMove :: Board -> Pieces -> PieceColor -> Move -> String
 showMove b ps t m@(Move from to cap ep cas)
   -- kingside castle (0-0)
-  | cas == Just Kingside = "0-0"
+  | cas == Just Kingside = "0-0" ++ checkOrCheckmate
   
   -- queenside castle (0-0-0)
-  | cas == Just Queenside = "0-0-0"
+  | cas == Just Queenside = "0-0-0" ++ checkOrCheckmate
   
   -- pawn capture promotion (axb1=N)
-  | pieceType from == Pawn && pieceType to /= Pawn && isJust cap = (head fromPieceSquare) : "x" ++ toPieceSquare ++ "=" ++ (show . pieceType $ to)
+  | pieceType from == Pawn && pieceType to /= Pawn && isJust cap = (head fromPieceSquare) : "x" ++ toPieceSquare ++ "=" ++ (show . pieceType $ to) ++ checkOrCheckmate
   
   -- pawn capture en passant (exd5 e.p.)
-  | pieceType from == Pawn && isJust cap && ep = (head fromPieceSquare) : "x" ++ capturedPieceSquare ++ " e.p."
+  | pieceType from == Pawn && isJust cap && ep = (head fromPieceSquare) : "x" ++ capturedPieceSquare ++ " e.p." ++ checkOrCheckmate
   
   -- pawn capture (exd4)
-  | pieceType from == Pawn && isJust cap = (head fromPieceSquare) : "x" ++ toPieceSquare
+  | pieceType from == Pawn && isJust cap = (head fromPieceSquare) : "x" ++ toPieceSquare ++ checkOrCheckmate
   
   -- pawn promotion (e8=Q)
-  | pieceType from == Pawn && pieceType to /= Pawn = toPieceSquare ++ "=" ++ (show . pieceType $ to)
+  | pieceType from == Pawn && pieceType to /= Pawn = toPieceSquare ++ "=" ++ (show . pieceType $ to) ++ checkOrCheckmate
     
   -- pawn move (d6)
-  | pieceType from == Pawn = toPieceSquare
+  | pieceType from == Pawn = toPieceSquare ++ checkOrCheckmate
      
   -- piece capture (Qxh2)
-  | isJust cap = show (pieceType to) ++ rankOrFile ++ "x" ++ toPieceSquare
+  | isJust cap = show (pieceType to) ++ rankOrFile ++ "x" ++ toPieceSquare ++ checkOrCheckmate
     
   -- piece move (Nf3)
-  | otherwise = show (pieceType to) ++ rankOrFile ++ toPieceSquare
+  | otherwise = show (pieceType to) ++ rankOrFile ++ toPieceSquare ++ checkOrCheckmate
   where 
     fromPieceSquare = showSquare . square $ from
     toPieceSquare = showSquare . square $ to
@@ -352,6 +351,12 @@ showMove b ps t m@(Move from to cap ep cas)
       (square . toPiece $ m) == (square . toPiece $ m') &&
       (square . fromPiece $ m) /= (square $ fromPiece $ m')
     rankOrFile = disambiguate . map fromPiece $ filter ambiguous (allMoves b ps t)
+    checkOrCheckmate = let (updatedBoard, updatedPieces) = (updateBoard b m, updatePieces ps m) in 
+      case (isKingInCheck updatedBoard updatedPieces (reverseColor t)) of 
+        True -> case (legalMovesNotInCheck updatedBoard updatedPieces (reverseColor t) Nothing []) of
+          [] -> "++"
+          _ -> "+"
+        False -> ""
 
 -- |Reads a Move in algebraic notation.
 readMove :: Board -> Pieces -> PieceColor -> Maybe Piece -> [Castle] -> String -> Maybe Move
